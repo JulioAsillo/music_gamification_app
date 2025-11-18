@@ -166,8 +166,9 @@ class MusicScanScreen extends ConsumerWidget {
           ),
 
           // Barra de progreso
-          if (isScanning && progress.totalFiles > 0) ..[
+          if (isScanning && progress.totalFiles > 0)
             const SizedBox(height: 12),
+          if (isScanning && progress.totalFiles > 0)
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: LinearProgressIndicator(
@@ -176,11 +177,11 @@ class MusicScanScreen extends ConsumerWidget {
                 backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
               ),
             ),
-          ],
 
           // Ruta actual
-          if (isScanning && progress.currentPath.isNotEmpty) ..[
+          if (isScanning && progress.currentPath.isNotEmpty)
             const SizedBox(height: 8),
+          if (isScanning && progress.currentPath.isNotEmpty)
             Text(
               progress.currentPath.length > 50
                   ? '...${progress.currentPath.substring(progress.currentPath.length - 50)}'
@@ -192,7 +193,6 @@ class MusicScanScreen extends ConsumerWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-        ],
       ),
     );
   }

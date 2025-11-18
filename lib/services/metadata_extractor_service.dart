@@ -43,25 +43,27 @@ class MetadataExtractorService {
       if (!await file.exists()) return null;
 
       final fileSize = await file.length();
-      
+
       try {
         // Intentar leer metadatos con audio_metadata_reader
         final metadata = await readMetadata(file, getImage: false);
-        
+
         return AudioMetadata(
           filePath: filePath,
-          title: metadata.title?.isNotEmpty == true 
-              ? metadata.title! 
+          title: metadata.title?.isNotEmpty == true
+              ? metadata.title!
               : AudioMetadata._getTitleFromFilename(filePath),
-          artist: metadata.artist?.isNotEmpty == true 
-              ? metadata.artist! 
+          artist: metadata.artist?.isNotEmpty == true
+              ? metadata.artist!
               : 'Artista Desconocido',
-          album: metadata.album?.isNotEmpty == true 
-              ? metadata.album! 
+          album: metadata.album?.isNotEmpty == true
+              ? metadata.album!
               : 'Album Desconocido',
           duration: metadata.duration?.inSeconds,
-          year: metadata.year,
-          genre: metadata.genre,
+          year: metadata.year?.year,
+          genre: metadata.genres?.isNotEmpty == true
+              ? metadata.genres!.first
+              : null,
           trackNumber: metadata.trackNumber,
           fileSize: fileSize,
         );
@@ -99,7 +101,7 @@ class MetadataExtractorService {
   /// Formatea la duración en formato mm:ss
   static String formatDuration(int? seconds) {
     if (seconds == null || seconds <= 0) return '--:--';
-    
+
     final minutes = seconds ~/ 60;
     final remainingSeconds = seconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';

@@ -46,11 +46,14 @@ class PermissionService {
   /// Verifica si es Android 13 o superior
   static Future<bool> _isAndroid13OrHigher() async {
     if (!Platform.isAndroid) return false;
-    
-    // Verificar versión del SDK de Android
+
+    // Verificar si el permiso de audio existe (solo en Android 13+)
     try {
-      return await Permission.audio.status != PermissionStatus.undetermined;
+      final status = await Permission.audio.status;
+      // Si podemos consultar el estado, es Android 13+
+      return true;
     } catch (e) {
+      // Si falla, es Android 12 o anterior
       return false;
     }
   }
