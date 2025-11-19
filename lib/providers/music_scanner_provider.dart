@@ -83,7 +83,6 @@ class MusicScannerNotifier extends StateNotifier<MusicScannerState> {
         state = state.copyWith(progress: progress);
       },
       onAudioFound: (metadata) {
-        // Agregar canción a la lista en tiempo real
         final updatedSongs = [...state.songs, metadata];
         state = state.copyWith(songs: updatedSongs);
       },
@@ -91,7 +90,22 @@ class MusicScannerNotifier extends StateNotifier<MusicScannerState> {
 
     try {
       final songs = await scanner.scanDevice();
-      
+
+      // ✅ ============ AGREGAR ESTOS PRINTS AQUÍ ============
+      print('═══════════════════════════════════════════════');
+      print('🎵 Total de canciones encontradas: ${songs.length}');
+      print('═══════════════════════════════════════════════');
+
+      for (final song in songs) {
+        print('📁 Título: ${song.title}');
+        print('   Artista: ${song.artist}');
+        print('   Path: ${song.filePath}');
+        print('---');
+      }
+
+      print('═══════════════════════════════════════════════');
+      // ✅ ============ FIN DE LOS PRINTS ============
+
       state = state.copyWith(
         songs: songs,
         isScanning: false,

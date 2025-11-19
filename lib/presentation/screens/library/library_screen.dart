@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../scan/music_scan_screen.dart';
 
 /// Pantalla de biblioteca de música
-class LibraryScreen extends StatelessWidget {
+class LibraryScreen extends ConsumerWidget {
   const LibraryScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -51,7 +53,13 @@ class LibraryScreen extends StatelessWidget {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () {
-                // TODO: Implementar escaneo de música
+                // ✅ NUEVO: Navegar a la pantalla de escaneo
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MusicScanScreen(),
+                  ),
+                );
               },
               icon: const Icon(Icons.folder_open),
               label: const Text('Escanear Música'),

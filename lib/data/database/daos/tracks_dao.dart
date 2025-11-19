@@ -183,4 +183,17 @@ class TracksDao extends DatabaseAccessor<AppDatabase> with _$TracksDaoMixin {
     return (select(tracksTable)..where((t) => t.isFavorite.equals(true)))
         .watch();
   }
+
+  /// Insertar solo si no existe (evitar duplicados)
+  Future<int> insertTrackIfNotExists(TracksTableCompanion track) async {
+    final path = track.filePath.value;
+    final existing = await getTrackByPath(path);
+
+    if (existing != null) {
+      print('⚠️ Track ya existe: ${existing.title}');
+      return existing.id!;
+    }
+
+    return await insertTrack(track);
+  }
 }

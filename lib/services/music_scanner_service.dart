@@ -134,44 +134,54 @@ class MusicScannerService {
       ));
       return [];
     }
+
   }
 
-  /// Obtiene los directorios de música del dispositivo
+  /// Obtiene los directorios de música del dispositivo (sin duplicados)
   Future<List<Directory>> _getMusicDirectories() async {
+    final Set<String> uniquePaths = {}; // Usar Set para evitar duplicados
     final List<Directory> directories = [];
 
     if (Platform.isAndroid) {
-      // Directorios comunes de música en Android
       final externalStorage = await getExternalStorageDirectory();
-      
+
       if (externalStorage != null) {
         // Buscar en la raíz del almacenamiento
         final storagePath = externalStorage.path.split('Android')[0];
-        
+
+        // Lista de posibles directorios
         final possibleDirs = [
           Directory('$storagePath/Music'),
           Directory('$storagePath/Download'),
           Directory('$storagePath/Downloads'),
           Directory('$storagePath/Podcasts'),
           Directory('$storagePath/Audiobooks'),
-          Directory('/storage/emulated/0/Music'),
-          Directory('/storage/emulated/0/Download'),
         ];
 
         for (final dir in possibleDirs) {
           if (await dir.exists()) {
-            directories.add(dir);
+            // Normalizar path (eliminar doble slash, etc.)
+            final normalizedPath = dir.path.replaceAll('//', '/');
+
+            // Solo agregar si no existe ya
+            if (uniquePaths.add(normalizedPath)) {
+              directories.add(Directory(normalizedPath));
+              print('📁 Directorio agregado: $normalizedPath');
+            } else {
+              print('⚠️ Directorio duplicado ignorado: ${dir.path}');
+            }
           }
         }
       }
     } else if (Platform.isIOS) {
-      // En iOS, usar el directorio de documentos
       final appDir = await getApplicationDocumentsDirectory();
       directories.add(appDir);
     }
 
+    print('📊 Total de directorios únicos: ${directories.length}');
     return directories;
   }
+
 
   /// Cuenta archivos en un directorio recursivamente
   Future<int> _countFiles(Directory directory) async {
@@ -246,4 +256,5 @@ class MusicScannerService {
 
     return files;
   }
+
 }
