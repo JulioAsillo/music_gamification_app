@@ -6,6 +6,10 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 // Importar todas las tablas
+import 'daos/achievements_Dao.dart';
+import 'daos/play_sessions_dao.dart';
+import 'daos/stats_dao.dart';
+import 'daos/tracks_dao.dart';
 import 'tables/tracks_table.dart';
 import 'tables/play_sessions_table.dart';
 import 'tables/user_stats_table.dart';
@@ -31,7 +35,14 @@ part 'app_database.g.dart';
   GenreStatsTable,
   AchievementsTable,
   SessionPresetsTable,
-])
+],
+  daos: [
+    TracksDao,
+    PlaySessionsDao,
+    AchievementsDao,
+    StatsDao,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 

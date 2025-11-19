@@ -1,7 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/music_scanner_service.dart';
-import '../services/metadata_extractor_service.dart';
-import '../services/permission_service.dart';
+import 'package:drift/drift.dart' as drift;
+import '../../data/database/app_database.dart';
+import '../../data/database/daos/tracks_dao.dart';
+import '../../services/music_scanner_service.dart';
+import '../../services/metadata_extractor_service.dart';
+import '../../services/permission_service.dart';
+import '../../data/database/tables/tracks_table.dart';
+import 'repositories_provider.dart';
 
 /// 🎵 Estado del escaneo de música
 class MusicScannerState {
@@ -9,6 +14,7 @@ class MusicScannerState {
   final ScanProgress progress;
   final bool hasPermission;
   final bool isScanning;
+  final bool isSavingToDb;
   final String? errorMessage;
 
   MusicScannerState({
@@ -16,6 +22,7 @@ class MusicScannerState {
     ScanProgress? progress,
     this.hasPermission = false,
     this.isScanning = false,
+    this.isSavingToDb = false,
     this.errorMessage,
   }) : progress = progress ?? ScanProgress();
 
@@ -24,6 +31,7 @@ class MusicScannerState {
     ScanProgress? progress,
     bool? hasPermission,
     bool? isScanning,
+    bool? isSavingToDb,
     String? errorMessage,
   }) {
     return MusicScannerState(
@@ -31,6 +39,7 @@ class MusicScannerState {
       progress: progress ?? this.progress,
       hasPermission: hasPermission ?? this.hasPermission,
       isScanning: isScanning ?? this.isScanning,
+      isSavingToDb: isSavingToDb ?? this.isSavingToDb,
       errorMessage: errorMessage,
     );
   }
@@ -38,7 +47,9 @@ class MusicScannerState {
 
 /// 📦 Notifier para el estado del escaneo
 class MusicScannerNotifier extends StateNotifier<MusicScannerState> {
-  MusicScannerNotifier() : super(MusicScannerState()) {
+  final TracksDao tracksDao;
+
+  MusicScannerNotifier(this.tracksDao) : super(MusicScannerState()) {
     _checkPermissions();
   }
 
@@ -52,13 +63,13 @@ class MusicScannerNotifier extends StateNotifier<MusicScannerState> {
   Future<bool> requestPermissions() async {
     final granted = await PermissionService.requestStoragePermission();
     state = state.copyWith(hasPermission: granted);
-    
+
     if (!granted) {
       state = state.copyWith(
         errorMessage: 'Se necesitan permisos de almacenamiento para escanear música',
       );
     }
-    
+
     return granted;
   }
 
@@ -83,6 +94,7 @@ class MusicScannerNotifier extends StateNotifier<MusicScannerState> {
         state = state.copyWith(progress: progress);
       },
       onAudioFound: (metadata) {
+        // Agregar canción a la lista en tiempo real
         final updatedSongs = [...state.songs, metadata];
         state = state.copyWith(songs: updatedSongs);
       },
@@ -90,21 +102,6 @@ class MusicScannerNotifier extends StateNotifier<MusicScannerState> {
 
     try {
       final songs = await scanner.scanDevice();
-
-      // ✅ ============ AGREGAR ESTOS PRINTS AQUÍ ============
-      print('═══════════════════════════════════════════════');
-      print('🎵 Total de canciones encontradas: ${songs.length}');
-      print('═══════════════════════════════════════════════');
-
-      for (final song in songs) {
-        print('📁 Título: ${song.title}');
-        print('   Artista: ${song.artist}');
-        print('   Path: ${song.filePath}');
-        print('---');
-      }
-
-      print('═══════════════════════════════════════════════');
-      // ✅ ============ FIN DE LOS PRINTS ============
 
       state = state.copyWith(
         songs: songs,
@@ -116,6 +113,10 @@ class MusicScannerNotifier extends StateNotifier<MusicScannerState> {
           foundAudioFiles: songs.length,
         ),
       );
+
+      // ✅ GUARDAR EN BASE DE DATOS
+      await _saveTracksToDatabase(songs);
+
     } catch (e) {
       state = state.copyWith(
         isScanning: false,
@@ -125,6 +126,53 @@ class MusicScannerNotifier extends StateNotifier<MusicScannerState> {
           errorMessage: e.toString(),
         ),
       );
+    }
+  }
+
+  /// ✅ NUEVO: Guardar tracks en la base de datos
+  Future<void> _saveTracksToDatabase(List<AudioMetadata> songs) async {
+    if (songs.isEmpty) return;
+
+    state = state.copyWith(isSavingToDb: true);
+
+    try {
+      int savedCount = 0;
+      int duplicateCount = 0;
+
+      for (final song in songs) {
+        // Verificar si ya existe
+        final existing = await tracksDao.getTrackByPath(song.filePath);
+
+        if (existing == null) {
+          // Insertar nuevo track
+          final companion = TracksTableCompanion.insert(
+            filePath: song.filePath,
+            title: song.title,
+            artist: song.artist,
+            album: song.album,
+            genre: song.genre ?? 'Desconocido',
+            durationMs: song.duration != null ? song.duration! * 1000 : 0,
+            addedAt: DateTime.now(),
+            coverArtPath: drift.Value(null),
+          );
+
+          await tracksDao.insertTrack(companion);
+          savedCount++;
+        } else {
+          duplicateCount++;
+        }
+      }
+
+      print('✅ Guardados: $savedCount tracks');
+      print('⚠️ Duplicados omitidos: $duplicateCount tracks');
+
+    } catch (e) {
+      print('❌ Error guardando tracks: $e');
+      state = state.copyWith(
+        errorMessage: 'Error guardando canciones: $e',
+      );
+    } finally {
+      state = state.copyWith(isSavingToDb: false);
     }
   }
 
@@ -149,11 +197,14 @@ class MusicScannerNotifier extends StateNotifier<MusicScannerState> {
 
     try {
       final songs = await scanner.scanSpecificDirectory(path);
-      
+
       state = state.copyWith(
         songs: [...state.songs, ...songs],
         isScanning: false,
       );
+
+      // Guardar en DB
+      await _saveTracksToDatabase(songs);
     } catch (e) {
       state = state.copyWith(
         isScanning: false,
@@ -176,27 +227,10 @@ class MusicScannerNotifier extends StateNotifier<MusicScannerState> {
   }
 }
 
-/// 🎵 Provider del escaneador de música
+/// 🎵 Provider del escaneador de música (ACTUALIZADO)
 final musicScannerProvider = StateNotifierProvider<MusicScannerNotifier, MusicScannerState>(
-  (ref) => MusicScannerNotifier(),
+      (ref) {
+    final tracksRepository = ref.watch(tracksRepositoryProvider);
+    return MusicScannerNotifier(tracksRepository);
+  },
 );
-
-/// 📊 Provider para el progreso del escaneo
-final scanProgressProvider = Provider<ScanProgress>((ref) {
-  return ref.watch(musicScannerProvider).progress;
-});
-
-/// 🎶 Provider para la lista de canciones encontradas
-final scannedSongsProvider = Provider<List<AudioMetadata>>((ref) {
-  return ref.watch(musicScannerProvider).songs;
-});
-
-/// 🔐 Provider para verificar si hay permisos
-final hasStoragePermissionProvider = Provider<bool>((ref) {
-  return ref.watch(musicScannerProvider).hasPermission;
-});
-
-/// ⏳ Provider para verificar si está escaneando
-final isScanningProvider = Provider<bool>((ref) {
-  return ref.watch(musicScannerProvider).isScanning;
-});

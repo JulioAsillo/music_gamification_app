@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../providers/music_scanner_provider.dart';
+import '../../providers/music_scanner_provider.dart';
 import '../../../services/music_scanner_service.dart';
 import '../../../services/metadata_extractor_service.dart';
 
