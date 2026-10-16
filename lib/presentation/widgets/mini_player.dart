@@ -1,225 +1,87 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:io';
-import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_text_styles.dart';
-import '../providers/music_player_provider.dart';
-import '../providers/favorites_provider.dart';
-import '../providers/tracks_provider.dart';
-import '../screens/player/player_screen.dart';
+import 'package:go_router/go_router.dart';
 
-/// 🎵 Mini reproductor que aparece en la parte inferior
+import '../../core/router/app_router.dart';
+import '../providers/music_player_provider.dart';
+import 'ui/ui.dart';
+
+/// Mini reproductor persistente sobre la barra de navegación.
+///
+/// Portada, título/artista, play/pausa y siguiente; barra de progreso fina
+/// abajo. Al tocarlo abre el reproductor completo.
 class MiniPlayer extends ConsumerWidget {
   const MiniPlayer({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playerState = ref.watch(musicPlayerProvider);
-    final currentTrack = playerState.currentTrack;
+    final track = ref.watch(currentTrackProvider);
+    if (track == null) return const SizedBox.shrink();
 
-    // No mostrar si no hay track
-    if (currentTrack == null) {
-      return const SizedBox.shrink();
-    }
+    final p = context.palette;
+    final tt = Theme.of(context).textTheme;
+    final isPlaying = ref.watch(musicPlayerProvider.select((s) => s.isPlaying));
+    final hasNext = ref.watch(musicPlayerProvider.select((s) => s.hasNext));
+    final progress = ref.watch(musicPlayerProvider.select((s) => s.progress));
+    final notifier = ref.read(musicPlayerProvider.notifier);
 
-    return GestureDetector(
-      onTap: () {
-        // Abrir reproductor expandido
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const PlayerScreen(),
-          ),
-        );
-      },
-      child: Container(
-        height: 72,
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? AppColors.darkSurface
-              : Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
+    return Material(
+      color: p.surface,
+      child: InkWell(
+        onTap: () => context.push(AppRoutes.player),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Barra de progreso
-            LinearProgressIndicator(
-              value: playerState.progress.clamp(0.0, 1.0),
-              minHeight: 2,
-              backgroundColor: Colors.grey.withValues(alpha: 0.2),
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-            ),
-
-            // Contenido del mini player
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
-                child: Row(
-                  children: [
-                    // Cover art
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: currentTrack.coverArtPath != null &&
-                               File(currentTrack.coverArtPath!).existsSync()
-                            ? Image.file(
-                                File(currentTrack.coverArtPath!),
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Icon(
-                                    Icons.music_note,
-                                    color: AppColors.primary,
-                                    size: 28,
-                                  );
-                                },
-                              )
-                            : Icon(
-                                Icons.music_note,
-                                color: AppColors.primary,
-                                size: 28,
-                              ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-
-                    // Info del track
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            currentTrack.title,
-                            style: AppTextStyles.body1(context).copyWith(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            currentTrack.artist,
-                            style: AppTextStyles.caption(context).copyWith(
-                              fontSize: 12,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(width: 8),
-
-                    // Controles
-                    Row(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+              child: Row(
+                children: [
+                  Hero(
+                    tag: 'player-cover',
+                    child: TrackCover.track(track, size: 40, radius: 8),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Botón de favorito con Consumer para actualizaciones en tiempo real
-                        Consumer(
-                          builder: (context, ref, child) {
-                            final tracksAsync = ref.watch(watchAllTracksProvider);
-                            final isFavorite = tracksAsync.whenOrNull(
-                              data: (tracks) => tracks
-                                  .firstWhere((t) => t.id == currentTrack.id,
-                                      orElse: () => currentTrack)
-                                  .isFavorite,
-                            ) ?? currentTrack.isFavorite;
-
-                            return IconButton(
-                              padding: const EdgeInsets.all(8),
-                              constraints: const BoxConstraints(
-                                minWidth: 40,
-                                minHeight: 40,
-                              ),
-                              icon: Icon(
-                                isFavorite ? Icons.favorite : Icons.favorite_border,
-                              ),
-                              iconSize: 24,
-                              color: isFavorite ? AppColors.accent : AppColors.textSecondary,
-                              onPressed: () async {
-                                await ref.read(favoritesNotifierProvider.notifier)
-                                    .toggleFavorite(currentTrack.id!);
-                              },
-                            );
-                          },
+                        Text(
+                          track.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
                         ),
-
-                        const SizedBox(width: 4),
-
-                        // Mostrar indicador de carga si está cargando
-                        if (playerState.isLoading)
-                          Container(
-                            width: 44,
-                            height: 44,
-                            padding: const EdgeInsets.all(10),
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-                            ),
-                          )
-                        else ...[
-                          // Botón play/pause (más grande y centrado)
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.primary.withValues(alpha: 0.1),
-                            ),
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              icon: Icon(
-                                playerState.isPlaying
-                                    ? Icons.pause
-                                    : Icons.play_arrow,
-                              ),
-                              iconSize: 28,
-                              color: AppColors.primary,
-                              onPressed: () {
-                                ref.read(musicPlayerProvider.notifier).playPause();
-                              },
-                            ),
-                          ),
-                        ],
-
-                        const SizedBox(width: 4),
-
-                        // Botón siguiente
-                        IconButton(
-                          padding: const EdgeInsets.all(8),
-                          constraints: const BoxConstraints(
-                            minWidth: 40,
-                            minHeight: 40,
-                          ),
-                          icon: const Icon(Icons.skip_next),
-                          iconSize: 28,
-                          onPressed: playerState.hasNext
-                              ? () => ref.read(musicPlayerProvider.notifier).skipToNext()
-                              : null,
-                          color: playerState.hasNext
-                              ? (Theme.of(context).brightness == Brightness.dark
-                                  ? AppColors.textPrimary
-                                  : Colors.black87)
-                              : Colors.grey,
+                        Text(
+                          track.artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.labelSmall,
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    tooltip: isPlaying ? 'Pausar' : 'Reproducir',
+                    icon: Icon(isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 30),
+                    color: p.text,
+                    onPressed: notifier.playPause,
+                  ),
+                  IconButton(
+                    tooltip: 'Siguiente',
+                    icon: const Icon(Icons.skip_next_rounded, size: 28),
+                    color: p.text,
+                    onPressed: hasNext ? notifier.skipToNext : null,
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 2,
+              child: LinearProgressIndicator(
+                value: progress.isNaN ? 0 : progress.clamp(0.0, 1.0).toDouble(),
+                backgroundColor: p.divider,
+                color: p.accent,
               ),
             ),
           ],
@@ -228,4 +90,3 @@ class MiniPlayer extends ConsumerWidget {
     );
   }
 }
-

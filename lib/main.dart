@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'domain/services/audio_player_service.dart';
 import 'presentation/providers/theme_provider.dart';
-import 'presentation/screens/main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,13 +32,13 @@ class MyApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final accent = ref.watch(accentColorProvider);
 
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'MusiQuest',
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
       theme: AppTheme.light(accent),
       darkTheme: AppTheme.dark(accent),
-      home: const MainScreen(),
+      routerConfig: appRouter,
     );
   }
 }

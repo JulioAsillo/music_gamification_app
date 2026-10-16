@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/theme_provider.dart';
 import '../../widgets/ui/ui.dart';
+import '../scan/scan_sheet.dart';
 import 'design_preview_screen.dart';
 
 /// Pantalla de ajustes.
@@ -66,9 +67,7 @@ class SettingsScreen extends ConsumerWidget {
                     icon: Icons.folder_open_rounded,
                     title: 'Escanear música',
                     subtitle: 'Buscar canciones en el dispositivo',
-                    onTap: () {
-                      // Fase 3: abre el bottom sheet de escaneo
-                    },
+                    onTap: () => showScanSheet(context),
                   ),
                   _SettingsRow(
                     icon: Icons.delete_outline_rounded,

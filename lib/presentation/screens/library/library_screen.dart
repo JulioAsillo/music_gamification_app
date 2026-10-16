@@ -9,7 +9,7 @@ import '../../../data/models/track.dart';
 import '../../providers/music_player_provider.dart';
 import '../../providers/favorites_provider.dart';
 import '../../providers/filters_provider.dart';
-import '../scan/music_scan_screen.dart';
+import '../scan/scan_sheet.dart';
 import 'favorites_screen.dart';
 import 'filters_screen.dart';
 import 'grouped_library_screen.dart';
@@ -165,14 +165,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
       ),
       floatingActionButton: FloatingActionButton(
         heroTag: 'library_scan_fab',
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const MusicScanScreen(),
-            ),
-          );
-        },
+        onPressed: () => showScanSheet(context),
         child: const Icon(Icons.search),
         tooltip: 'Escanear música',
       ),
