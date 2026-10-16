@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../presentation/screens/home/home_screen.dart';
 import '../../presentation/screens/library/library_screen.dart';
 import '../../presentation/screens/player/player_screen.dart';
+import '../../presentation/screens/profile/profile_screen.dart';
 import '../../presentation/screens/progress/progress_screen.dart';
-import '../../presentation/screens/settings/settings_screen.dart';
 import '../../presentation/screens/shell/app_shell.dart';
 
 /// Rutas de la app.
@@ -60,7 +60,7 @@ final appRouter = GoRouter(
         StatefulShellBranch(routes: [
           GoRoute(
             path: AppRoutes.profile,
-            builder: (context, state) => const SettingsScreen(),
+            builder: (context, state) => const ProfileScreen(),
           ),
         ]),
       ],

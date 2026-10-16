@@ -79,11 +79,16 @@ Hacerlo entre fases, con la app estable, en su propia rama.
 
 ## Estado
 
+Todo el rediseño vive en la rama `fase-2-sistema-diseno` (un commit por fase).
+
 | Fase | Estado |
 |---|---|
-| 1 · Dependencias | ✅ Cerrada (en `master`) |
-| 2 · Sistema de diseño | Entregada en rama `fase-2-sistema-diseno`, pendiente de verificar |
-| 3 · Navegación | Pendiente |
-| 4 · Biblioteca y Reproductor | Pendiente |
-| 5 · Inicio y Progreso | Pendiente |
-| 6 · Perfil y pulido | Pendiente |
+| 1 · Dependencias | ✅ En `master` |
+| 2 · Sistema de diseño | ✅ Probada en emulador |
+| 3 · Navegación | Entregada, pendiente de probar |
+| 4 · Biblioteca y Reproductor | Entregada, pendiente de probar |
+| 5 · Inicio y Progreso (+ gamificación) | Entregada, pendiente de probar |
+| 6 · Perfil y pulido | Entregada, pendiente de probar |
+| Toolchain Android (Gradle 9 / AGP 9) | Pendiente, tarea aparte |
+
+Detalle de las fases 3–6 y checklist de prueba: `docs/FASES-3-6.md`.
