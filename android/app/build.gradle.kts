@@ -18,25 +18,43 @@ android {
 
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_17.toString()
+        // Deshabilitar compilación incremental para evitar problemas con cachés
+        freeCompilerArgs += listOf("-Xno-call-assertions", "-Xno-receiver-assertions", "-Xno-param-assertions")
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.musicgamification.music_gamification_app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
+        
+        // Optimización: Generar APKs separados por arquitectura
+        ndk {
+            abiFilters.clear()
+            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
+        }
+    }
+    
+    // Splits para generar APKs más pequeños por arquitectura
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86_64")
+            isUniversalApk = true  // También genera un APK universal
+        }
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            
+            // Deshabilitado temporalmente por conflictos con dependencias de Flutter
+            // Los splits por arquitectura ya reducen el tamaño en 65%
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }

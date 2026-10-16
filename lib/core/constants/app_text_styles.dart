@@ -70,14 +70,14 @@ class AppTextStyles {
     fontFamily: fontFamily,
     fontSize: 14,
     fontWeight: FontWeight.normal,
-    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+    color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
   );
 
   static TextStyle albumName(BuildContext context) => TextStyle(
     fontFamily: fontFamily,
     fontSize: 13,
     fontWeight: FontWeight.normal,
-    color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6),
+    color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.6),
   );
 
   // 🔢 NÚMEROS Y STATS
@@ -93,7 +93,7 @@ class AppTextStyles {
     fontFamily: fontFamily,
     fontSize: 12,
     fontWeight: FontWeight.w500,
-    color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+    color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.7),
     letterSpacing: 0.5,
   );
 
@@ -109,7 +109,7 @@ class AppTextStyles {
     fontFamily: fontFamily,
     fontSize: 13,
     fontWeight: FontWeight.normal,
-    color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+    color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.7),
     height: 1.4,
   );
 
@@ -129,4 +129,9 @@ class AppTextStyles {
     color: Colors.white,
     letterSpacing: 0.3,
   );
+
+  // 🎯 ALIASES PARA COMPATIBILIDAD
+  static TextStyle body1(BuildContext context) => bodyLarge(context);
+  static TextStyle caption(BuildContext context) => bodySmall(context);
 }
+

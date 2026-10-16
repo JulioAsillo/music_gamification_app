@@ -2,6 +2,11 @@
 class DurationFormatter {
   DurationFormatter._();
 
+  /// Alias para formatDuration (compatibilidad)
+  static String format(Duration duration) {
+    return formatDuration(duration);
+  }
+
   /// Convierte milisegundos a formato MM:SS
   /// Ejemplo: 185000 ms → "3:05"
   static String formatMilliseconds(int milliseconds) {

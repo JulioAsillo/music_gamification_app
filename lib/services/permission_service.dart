@@ -39,7 +39,7 @@ class PermissionService {
   }
 
   /// Abre la configuración de la app para cambiar permisos
-  static Future<void> openAppSettings() async {
+  static Future<void> openSettings() async {
     await openAppSettings();
   }
 
@@ -49,7 +49,7 @@ class PermissionService {
 
     // Verificar si el permiso de audio existe (solo en Android 13+)
     try {
-      final status = await Permission.audio.status;
+      await Permission.audio.status;
       // Si podemos consultar el estado, es Android 13+
       return true;
     } catch (e) {

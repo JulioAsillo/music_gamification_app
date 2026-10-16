@@ -44,5 +44,12 @@ class AppColors {
   static const Color xpBarFill = Color(0xFF10b981);
   static const Color xpBarBackground = Color(0xFF374151);
 
+  // 🎯 ALIASES PARA REPRODUCTOR (compatibilidad)
+  static const Color primary = accentDark;
+  static const Color accent = chartTertiary;
+  static const Color darkBackground = backgroundDark;
+  static const Color darkSurface = cardElevationDark;
+  static const Color textPrimary = textPrimaryDark;
+  static const Color textSecondary = textSecondaryDark;
 }
 

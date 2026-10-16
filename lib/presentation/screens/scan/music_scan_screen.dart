@@ -36,6 +36,7 @@ class MusicScanScreen extends ConsumerWidget {
             ),
       floatingActionButton: hasPermission && !isScanning
           ? FloatingActionButton.extended(
+              heroTag: 'music_scan_fab',
               onPressed: () => ref.read(musicScannerProvider.notifier).startScan(),
               icon: const Icon(Icons.search),
               label: const Text('Escanear'),

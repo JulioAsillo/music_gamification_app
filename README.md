@@ -1,16 +1,21 @@
-# music_gamification_app
+# MusiQuest
 
-App de música local con gamificación y tracking
+App de música local con gamificación y tracking.
 
-## Getting Started
+**Versión:** 1.0.0  
+**Plataforma:** Android 5.0+
 
-This project is a starting point for a Flutter application.
+## 🚀 Instalación
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+flutter pub get
+flutter run
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## 📦 Compilar APK
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter build apk --release --split-per-abi
+```
+
+APKs optimizados en: `build/app/outputs/flutter-apk/`

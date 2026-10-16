@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../database/app_database.dart';
 
 /// Modelo de una canción/track
 class Track extends Equatable {
@@ -31,6 +32,25 @@ class Track extends Equatable {
     this.isFavorite = false,
     this.coverArtPath,
   });
+
+  /// Constructor para crear desde Drift
+  factory Track.fromDatabase(TracksTableData data) {
+    return Track(
+      id: data.id,
+      filePath: data.filePath,
+      title: data.title,
+      artist: data.artist,
+      album: data.album,
+      genre: data.genre,
+      durationMs: data.durationMs,
+      addedAt: data.addedAt,
+      playCount: data.playCount,
+      skipCount: data.skipCount,
+      lastPlayedAt: data.lastPlayedAt,
+      isFavorite: data.isFavorite,
+      coverArtPath: data.coverArtPath,
+    );
+  }
 
   /// Constructor para crear un track vacío
   factory Track.empty() {

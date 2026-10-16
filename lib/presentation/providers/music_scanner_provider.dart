@@ -1,12 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import '../../data/database/app_database.dart';
 import '../../data/database/daos/tracks_dao.dart';
 import '../../services/music_scanner_service.dart';
 import '../../services/metadata_extractor_service.dart';
 import '../../services/permission_service.dart';
-import '../../data/database/tables/tracks_table.dart';
-import 'repositories_provider.dart';
+import 'database_provider.dart';
 
 /// 🎵 Estado del escaneo de música
 class MusicScannerState {
@@ -139,11 +141,32 @@ class MusicScannerNotifier extends StateNotifier<MusicScannerState> {
       int savedCount = 0;
       int duplicateCount = 0;
 
+      // Crear directorio para portadas si no existe
+      final appDir = await getApplicationDocumentsDirectory();
+      final coversDir = Directory(path.join(appDir.path, 'covers'));
+      if (!await coversDir.exists()) {
+        await coversDir.create(recursive: true);
+      }
+
       for (final song in songs) {
         // Verificar si ya existe
         final existing = await tracksDao.getTrackByPath(song.filePath);
 
         if (existing == null) {
+          // Guardar portada si existe
+          String? coverPath;
+          if (song.coverArtBytes != null && song.coverArtBytes!.isNotEmpty) {
+            try {
+              final trackId = DateTime.now().millisecondsSinceEpoch;
+              final coverFile = File(path.join(coversDir.path, 'cover_$trackId.jpg'));
+              await coverFile.writeAsBytes(song.coverArtBytes!);
+              coverPath = coverFile.path;
+              print('🖼️ Portada guardada: $coverPath');
+            } catch (e) {
+              print('❌ Error guardando portada: $e');
+            }
+          }
+
           // Insertar nuevo track
           final companion = TracksTableCompanion.insert(
             filePath: song.filePath,
@@ -153,7 +176,7 @@ class MusicScannerNotifier extends StateNotifier<MusicScannerState> {
             genre: song.genre ?? 'Desconocido',
             durationMs: song.duration != null ? song.duration! * 1000 : 0,
             addedAt: DateTime.now(),
-            coverArtPath: drift.Value(null),
+            coverArtPath: drift.Value(coverPath),
           );
 
           await tracksDao.insertTrack(companion);
@@ -223,14 +246,13 @@ class MusicScannerNotifier extends StateNotifier<MusicScannerState> {
 
   /// Abre configuración de la app
   Future<void> openSettings() async {
-    await PermissionService.openAppSettings();
+    await PermissionService.openSettings();
   }
 }
 
-/// 🎵 Provider del escaneador de música (ACTUALIZADO)
 final musicScannerProvider = StateNotifierProvider<MusicScannerNotifier, MusicScannerState>(
-      (ref) {
-    final tracksRepository = ref.watch(tracksRepositoryProvider);
-    return MusicScannerNotifier(tracksRepository);
+  (ref) {
+    final database = ref.watch(appDatabaseProvider);
+    return MusicScannerNotifier(database.tracksDao);
   },
 );

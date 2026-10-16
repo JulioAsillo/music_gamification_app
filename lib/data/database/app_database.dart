@@ -6,23 +6,18 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 // Importar todas las tablas
-import 'daos/achievements_Dao.dart';
+import 'daos/achievements_dao.dart';
 import 'daos/play_sessions_dao.dart';
 import 'daos/stats_dao.dart';
 import 'daos/tracks_dao.dart';
+import 'daos/playlists_dao.dart';
 import 'tables/tracks_table.dart';
 import 'tables/play_sessions_table.dart';
 import 'tables/user_stats_table.dart';
 import 'tables/genre_stats_table.dart';
 import 'tables/achievements_table.dart';
+import 'tables/playlists_table.dart';
 
-// Importar los modelos para conversiones
-import '../models/track.dart' as models;
-import '../models/play_session.dart' as models;
-import '../models/user_stats.dart' as models;
-import '../models/genre_stats.dart' as models;
-import '../models/achievement.dart' as models;
-import '../models/session_preset.dart' as models;
 
 // Esta parte es para code generation
 part 'app_database.g.dart';
@@ -35,19 +30,29 @@ part 'app_database.g.dart';
   GenreStatsTable,
   AchievementsTable,
   SessionPresetsTable,
+  PlaylistsTable,
+  PlaylistTracksTable,
 ],
   daos: [
     TracksDao,
     PlaySessionsDao,
     AchievementsDao,
     StatsDao,
+    PlaylistsDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2; // Incrementado para nueva migración
+
+  // Getters para los DAOs
+  TracksDao get tracksDao => TracksDao(this);
+  PlaySessionsDao get playSessionsDao => PlaySessionsDao(this);
+  AchievementsDao get achievementsDao => AchievementsDao(this);
+  StatsDao get statsDao => StatsDao(this);
+  PlaylistsDao get playlistsDao => PlaylistsDao(this);
 
   @override
   MigrationStrategy get migration {
@@ -63,7 +68,12 @@ class AppDatabase extends _$AppDatabase {
         );
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        // Migraciones futuras van aquí
+        // Migración de v1 a v2: Agregar tablas de playlists
+        if (from < 2) {
+          await m.createTable(playlistsTable);
+          await m.createTable(playlistTracksTable);
+          print('✅ Tablas de playlists creadas');
+        }
       },
     );
   }

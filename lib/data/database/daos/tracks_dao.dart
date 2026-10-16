@@ -191,7 +191,7 @@ class TracksDao extends DatabaseAccessor<AppDatabase> with _$TracksDaoMixin {
 
     if (existing != null) {
       print('⚠️ Track ya existe: ${existing.title}');
-      return existing.id!;
+      return existing.id;
     }
 
     return await insertTrack(track);

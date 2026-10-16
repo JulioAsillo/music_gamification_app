@@ -13,6 +13,7 @@ class AudioMetadata {
   final String? genre;
   final int? trackNumber;
   final int fileSize;
+  final List<int>? coverArtBytes; // Bytes de la imagen de portada
 
   AudioMetadata({
     required this.filePath,
@@ -24,6 +25,7 @@ class AudioMetadata {
     this.genre,
     this.trackNumber,
     required this.fileSize,
+    this.coverArtBytes,
   });
 
   /// Genera un título predeterminado desde el nombre del archivo
@@ -46,26 +48,25 @@ class MetadataExtractorService {
 
       try {
         // Intentar leer metadatos con audio_metadata_reader
-        final metadata = await readMetadata(file, getImage: false);
+        final metadata = readMetadata(file, getImage: true);
 
         return AudioMetadata(
           filePath: filePath,
-          title: metadata.title?.isNotEmpty == true
+          title: (metadata.title?.isNotEmpty == true)
               ? metadata.title!
               : AudioMetadata._getTitleFromFilename(filePath),
-          artist: metadata.artist?.isNotEmpty == true
-              ? metadata.artist!
-              : 'Artista Desconocido',
-          album: metadata.album?.isNotEmpty == true
-              ? metadata.album!
-              : 'Album Desconocido',
+          artist: (metadata.artist?.isNotEmpty == true ? metadata.artist : null) ?? 'Artista Desconocido',
+          album: (metadata.album?.isNotEmpty == true ? metadata.album : null) ?? 'Album Desconocido',
           duration: metadata.duration?.inSeconds,
           year: metadata.year?.year,
-          genre: metadata.genres?.isNotEmpty == true
-              ? metadata.genres!.first
+          genre: (metadata.genres.isNotEmpty)
+              ? metadata.genres.first
               : null,
           trackNumber: metadata.trackNumber,
           fileSize: fileSize,
+          coverArtBytes: metadata.pictures.isNotEmpty
+              ? metadata.pictures.first.bytes
+              : null,
         );
       } catch (e) {
         // Si falla la lectura de metadatos, usar valores predeterminados
@@ -79,6 +80,7 @@ class MetadataExtractorService {
           genre: null,
           trackNumber: null,
           fileSize: fileSize,
+          coverArtBytes: null,
         );
       }
     } catch (e) {

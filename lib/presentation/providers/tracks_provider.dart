@@ -109,3 +109,7 @@ Stream<List<Track>> watchFavoriteTracks(WatchFavoriteTracksRef ref) {
   final repository = ref.watch(tracksRepositoryProvider);
   return repository.watchFavoriteTracks();
 }
+
+/// Alias para compatibilidad con library_screen.dart
+final allTracksStreamProvider = watchAllTracksProvider;
+

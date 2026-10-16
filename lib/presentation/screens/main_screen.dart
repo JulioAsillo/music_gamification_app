@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/custom_bottom_nav_bar.dart';
+import '../widgets/mini_player.dart';
 import 'library/library_screen.dart';
+import 'playlists/playlists_screen.dart';
 import 'stats/stats_screen.dart';
 import 'achievements/achievements_screen.dart';
 import 'settings/settings_screen.dart';
@@ -20,6 +22,7 @@ class MainScreen extends ConsumerWidget {
     // Lista de pantallas
     final screens = [
       const LibraryScreen(),
+      const PlaylistsScreen(),
       const StatsScreen(),
       const AchievementsScreen(),
       const SettingsScreen(),
@@ -30,11 +33,17 @@ class MainScreen extends ConsumerWidget {
         index: currentIndex,
         children: screens,
       ),
-      bottomNavigationBar: CustomBottomNavBar(
-        currentIndex: currentIndex,
-        onTap: (index) {
-          ref.read(currentTabIndexProvider.notifier).state = index;
-        },
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const MiniPlayer(),
+          CustomBottomNavBar(
+            currentIndex: currentIndex,
+            onTap: (index) {
+              ref.read(currentTabIndexProvider.notifier).state = index;
+            },
+          ),
+        ],
       ),
     );
   }

@@ -139,36 +139,43 @@ class MusicScannerService {
 
   /// Obtiene los directorios de música del dispositivo (sin duplicados)
   Future<List<Directory>> _getMusicDirectories() async {
-    final Set<String> uniquePaths = {}; // Usar Set para evitar duplicados
     final List<Directory> directories = [];
 
     if (Platform.isAndroid) {
       final externalStorage = await getExternalStorageDirectory();
 
       if (externalStorage != null) {
-        // Buscar en la raíz del almacenamiento
+        // Obtener la raíz del almacenamiento externo
+        // Ejemplo: /storage/emulated/0/Android/data/.../files
+        // Queremos: /storage/emulated/0/
         final storagePath = externalStorage.path.split('Android')[0];
 
-        // Lista de posibles directorios
-        final possibleDirs = [
-          Directory('$storagePath/Music'),
-          Directory('$storagePath/Download'),
-          Directory('$storagePath/Downloads'),
-          Directory('$storagePath/Podcasts'),
-          Directory('$storagePath/Audiobooks'),
-        ];
+        print('📂 Escaneando TODO el almacenamiento desde: $storagePath');
 
-        for (final dir in possibleDirs) {
-          if (await dir.exists()) {
-            // Normalizar path (eliminar doble slash, etc.)
-            final normalizedPath = dir.path.replaceAll('//', '/');
+        // Escanear TODO el almacenamiento
+        final rootDirectory = Directory(storagePath);
 
-            // Solo agregar si no existe ya
-            if (uniquePaths.add(normalizedPath)) {
-              directories.add(Directory(normalizedPath));
-              print('📁 Directorio agregado: $normalizedPath');
-            } else {
-              print('⚠️ Directorio duplicado ignorado: ${dir.path}');
+        if (await rootDirectory.exists()) {
+          directories.add(rootDirectory);
+          print('✅ Se escaneará todo el dispositivo');
+        } else {
+          print('❌ No se puede acceder a la raíz del almacenamiento');
+
+          // Fallback: escanear directorios comunes
+          final possibleDirs = [
+            Directory('$storagePath/Music'),
+            Directory('$storagePath/Download'),
+            Directory('$storagePath/Downloads'),
+            Directory('$storagePath/Podcasts'),
+            Directory('$storagePath/Audiobooks'),
+            Directory('$storagePath/DCIM'),
+            Directory('$storagePath/Documents'),
+          ];
+
+          for (final dir in possibleDirs) {
+            if (await dir.exists()) {
+              directories.add(dir);
+              print('📁 Directorio agregado: ${dir.path}');
             }
           }
         }
@@ -178,7 +185,7 @@ class MusicScannerService {
       directories.add(appDir);
     }
 
-    print('📊 Total de directorios únicos: ${directories.length}');
+    print('📊 Total de directorios a escanear: ${directories.length}');
     return directories;
   }
 
@@ -206,7 +213,7 @@ class MusicScannerService {
     final List<AudioMetadata> audioFiles = [];
 
     try {
-      await for (final entity in directory.list(recursive: true, followLinks: false)) {
+      await for (final entity in directory.list(recursive: false, followLinks: false)) {
         if (entity is File) {
           final filePath = entity.path;
           onFileScanned?.call(filePath);
@@ -220,13 +227,66 @@ class MusicScannerService {
               onAudioFound?.call(metadata);
             }
           }
+        } else if (entity is Directory) {
+          // Omitir directorios protegidos del sistema
+          if (_shouldSkipDirectory(entity.path)) {
+            continue;
+          }
+
+          // Escanear subdirectorio recursivamente
+          try {
+            final subFiles = await _scanDirectory(entity, onFileScanned: onFileScanned);
+            audioFiles.addAll(subFiles);
+          } catch (e) {
+            // Omitir directorios sin permisos silenciosamente
+          }
         }
       }
     } catch (e) {
-      print('❌ Error escaneando directorio ${directory.path}: $e');
+      print('⚠️ No se pudo acceder a: ${directory.path}');
     }
 
     return audioFiles;
+  }
+
+  /// Verifica si un directorio debe ser omitido
+  bool _shouldSkipDirectory(String path) {
+    final lowerPath = path.toLowerCase();
+
+    // Lista de directorios a omitir
+    final skipPatterns = [
+      '/android/data',
+      '/android/obb',
+      '/.android_secure',
+      '/lost+found',
+      '/.thumbnails',
+      '/.trash',
+      '/cache',
+      '/whatsapp',        // 📱 WhatsApp
+      '/telegram',        // 📱 Telegram
+      '/messenger',       // 📱 Messenger
+      '/instagram',       // 📱 Instagram
+      '/snapchat',        // 📱 Snapchat
+      '/tiktok',          // 📱 TikTok
+      '/recordings',      // 🎙️ Grabaciones de voz
+      '/notifications',   // 🔔 Notificaciones
+      '/ringtones',       // 📞 Tonos (opcional)
+      '/alarms',          // ⏰ Alarmas (opcional)
+    ];
+
+    for (final pattern in skipPatterns) {
+      if (lowerPath.contains(pattern)) {
+        return true;
+      }
+    }
+
+    // Omitir directorios ocultos (que empiezan con .)
+    final dirName = path.split('/').last;
+    if (dirName.startsWith('.') && dirName.length > 1) {
+      return true;
+    }
+
+    return false;
   }
 
   /// Reporta el progreso del escaneo

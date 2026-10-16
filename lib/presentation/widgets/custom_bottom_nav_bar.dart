@@ -29,7 +29,7 @@ class CustomBottomNavBar extends StatelessWidget {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -40,22 +40,28 @@ class CustomBottomNavBar extends StatelessWidget {
                 onTap: () => onTap(0),
               ),
               _NavBarItem(
-                icon: Icons.bar_chart,
-                label: 'Estadísticas',
+                icon: Icons.queue_music,
+                label: 'Playlists',
                 isSelected: currentIndex == 1,
                 onTap: () => onTap(1),
               ),
               _NavBarItem(
-                icon: Icons.emoji_events,
-                label: 'Logros',
+                icon: Icons.bar_chart,
+                label: 'Stats',
                 isSelected: currentIndex == 2,
                 onTap: () => onTap(2),
               ),
               _NavBarItem(
-                icon: Icons.settings,
-                label: 'Ajustes',
+                icon: Icons.emoji_events,
+                label: 'Logros',
                 isSelected: currentIndex == 3,
                 onTap: () => onTap(3),
+              ),
+              _NavBarItem(
+                icon: Icons.settings,
+                label: 'Ajustes',
+                isSelected: currentIndex == 4,
+                onTap: () => onTap(4),
               ),
             ],
           ),
@@ -90,7 +96,7 @@ class _NavBarItem extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: isSelected
             ? BoxDecoration(
           color: AppColors.accentDark.withOpacity(0.1),
@@ -103,16 +109,18 @@ class _NavBarItem extends StatelessWidget {
             Icon(
               icon,
               color: color,
-              size: 24,
+              size: 22,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 10,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 color: color,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
