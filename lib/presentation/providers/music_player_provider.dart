@@ -2,9 +2,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart'; // Riverpod 3: StateProvider/StateNotifier viven aquí
 import 'package:just_audio/just_audio.dart';
+import '../../core/constants/gamification.dart';
 import '../../data/models/track.dart';
 import '../../domain/services/audio_player_service.dart';
 import 'database_provider.dart';
+import 'gamification_provider.dart';
 
 /// 🎵 Estado del reproductor
 class PlayerState {
@@ -75,9 +77,14 @@ class MusicPlayerNotifier extends StateNotifier<PlayerState> {
   StreamSubscription? _loopModeSubscription;
   StreamSubscription? _shuffleSubscription;
 
-  Timer? _playbackTimer;
-  DateTime? _trackStartTime;
+  // ── Seguimiento de escucha para la gamificación ──
+  // Un "tramo" es tiempo continuo sonando de una misma canción. Se guarda
+  // al pausar, al cambiar de canción y cada 30 s (por si la app se cierra).
+  Timer? _flushTimer;
+  DateTime? _segmentStart;
+  Track? _segmentTrack;
   bool _trackCountedAsPlayed = false;
+  int _lastPositionSec = 0;
 
   MusicPlayerNotifier(this._audioService, this._ref) : super(PlayerState()) {
     _setupListeners();
@@ -108,10 +115,11 @@ class MusicPlayerNotifier extends StateNotifier<PlayerState> {
       );
 
       // Gestionar inicio/pausa de reproducción
-      if (isPlaying && _trackStartTime == null) {
-        _startPlaybackTracking();
-      } else if (!isPlaying && _trackStartTime != null) {
-        _pausePlaybackTracking();
+      final completed = playerState.processingState == ProcessingState.completed;
+      if (isPlaying && !completed && _segmentStart == null) {
+        _startSegment();
+      } else if ((!isPlaying || completed) && _segmentStart != null) {
+        _endSegment();
       }
 
       // Detectar fin de track
@@ -130,11 +138,9 @@ class MusicPlayerNotifier extends StateNotifier<PlayerState> {
             ? queue[currentIndex]
             : null;
 
-        // Si cambió el track, registrar la reproducción anterior
-        if (state.currentTrack != null &&
-            currentTrack != null &&
-            state.currentTrack!.id != currentTrack.id) {
-          _onTrackChanged();
+        // Si cambió el track, cerrar el tramo del anterior
+        if (currentTrack != null && currentTrack.id != _segmentTrack?.id) {
+          _switchTrack(currentTrack);
         }
 
         state = state.copyWith(
@@ -142,12 +148,6 @@ class MusicPlayerNotifier extends StateNotifier<PlayerState> {
           queue: queue,
           currentIndex: currentIndex,
         );
-
-        // Iniciar tracking del nuevo track
-        if (currentTrack != null) {
-          _trackStartTime = DateTime.now();
-          _trackCountedAsPlayed = false;
-        }
       }
     });
 
@@ -189,8 +189,8 @@ class MusicPlayerNotifier extends StateNotifier<PlayerState> {
         isPlaying: true,
       );
 
-      _trackStartTime = DateTime.now();
-      _trackCountedAsPlayed = false;
+      // Nueva reproducción explícita: cuenta de nuevo aunque sea la misma canción
+      _switchTrack(tracks[initialIndex]);
 
       print('✅ Estado actualizado - Reproduciendo: ${tracks[initialIndex].title}');
     } catch (e) {
@@ -280,13 +280,21 @@ class MusicPlayerNotifier extends StateNotifier<PlayerState> {
 
   /// Verificar progreso para registrar reproducción
   void _checkPlaybackProgress(Duration position) {
+    // Repetir una canción (o volver al inicio) permite contarla otra vez
+    if (position.inSeconds < 2 && _lastPositionSec > 10) {
+      _trackCountedAsPlayed = false;
+    }
+    _lastPositionSec = position.inSeconds;
+
     if (state.currentTrack == null || _trackCountedAsPlayed) return;
 
     final duration = state.duration;
     if (duration == null || duration.inSeconds == 0) return;
 
-    // Contar como reproducido si llegó al 30% o 30 segundos
-    final threshold = duration.inSeconds > 100 ? duration.inSeconds * 0.3 : 30;
+    // Contar como reproducido al llegar al 30 % o a los 30 s (lo que ocurra primero)
+    final threshold = Gamification.countAtFraction * duration.inSeconds < Gamification.countAtSeconds
+        ? Gamification.countAtFraction * duration.inSeconds
+        : Gamification.countAtSeconds.toDouble();
 
     if (position.inSeconds >= threshold) {
       _trackCountedAsPlayed = true;
@@ -294,70 +302,63 @@ class MusicPlayerNotifier extends StateNotifier<PlayerState> {
     }
   }
 
-  /// Iniciar tracking de reproducción
-  void _startPlaybackTracking() {
-    _trackStartTime = DateTime.now();
-    _playbackTimer?.cancel();
-
-    // Timer para actualizar estadísticas cada minuto
-    _playbackTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      _updatePlaybackStats();
-    });
+  void _startSegment() {
+    _segmentStart = DateTime.now();
+    _segmentTrack ??= state.currentTrack;
+    _flushTimer?.cancel();
+    _flushTimer = Timer.periodic(const Duration(seconds: 30), (_) => _flushSegment(keepRunning: true));
   }
 
-  /// Pausar tracking
-  void _pausePlaybackTracking() {
-    _playbackTimer?.cancel();
-    _updatePlaybackStats();
+  void _endSegment() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    _flushSegment(keepRunning: false);
   }
 
-  /// Cuando cambia de track
-  void _onTrackChanged() {
-    _updatePlaybackStats();
-    _trackStartTime = DateTime.now();
+  /// Guarda el tiempo escuchado desde el inicio del tramo.
+  void _flushSegment({required bool keepRunning}) {
+    final start = _segmentStart;
+    final track = _segmentTrack;
+    final now = DateTime.now();
+    if (start != null && track != null) {
+      try {
+        _ref.read(gamificationServiceProvider).recordListening(track, start, now).catchError((Object e) {
+          print('❌ Error guardando escucha: $e');
+        });
+      } catch (_) {
+        // El provider ya se destruyó (cierre de la app): no hay dónde guardar.
+      }
+    }
+    _segmentStart = keepRunning ? now : null;
+  }
+
+  /// Cierra el tramo de la canción anterior y empieza a seguir [next].
+  void _switchTrack(Track? next) {
+    _flushSegment(keepRunning: _segmentStart != null);
+    _segmentTrack = next;
     _trackCountedAsPlayed = false;
+    _lastPositionSec = 0;
   }
 
-  /// Cuando termina el track
+  /// Cuando termina la cola
   void _onTrackCompleted() {
-    if (!_trackCountedAsPlayed) {
+    if (!_trackCountedAsPlayed && state.currentTrack != null) {
       _trackCountedAsPlayed = true;
       _registerPlayback();
     }
-    _updatePlaybackStats();
   }
 
-  /// Registrar reproducción en la base de datos
+  /// Registrar reproducción: contador de la canción + XP y logros
   Future<void> _registerPlayback() async {
-    final track = state.currentTrack;
-    if (track == null) return;
+    final track = _segmentTrack ?? state.currentTrack;
+    if (track == null || track.id == null) return;
 
     try {
       final database = _ref.read(appDatabaseProvider);
-
-      // Incrementar play count
       await database.tracksDao.incrementPlayCount(track.id!);
-
-      print('✅ Reproducción registrada: ${track.title}');
+      await _ref.read(gamificationServiceProvider).recordCountedPlay(track);
     } catch (e) {
       print('❌ Error registrando reproducción: $e');
-    }
-  }
-
-  /// Actualizar estadísticas de reproducción
-  Future<void> _updatePlaybackStats() async {
-    if (_trackStartTime == null || state.currentTrack == null) return;
-
-    try {
-      final playTime = DateTime.now().difference(_trackStartTime!);
-
-      // TODO: Registrar sesión de reproducción en play_sessions
-      // TODO: Actualizar estadísticas de usuario
-      // TODO: Actualizar estadísticas de género
-
-      print('📊 Tiempo de reproducción: ${playTime.inSeconds}s');
-    } catch (e) {
-      print('❌ Error actualizando estadísticas: $e');
     }
   }
 
@@ -369,7 +370,8 @@ class MusicPlayerNotifier extends StateNotifier<PlayerState> {
     _sequenceStateSubscription?.cancel();
     _loopModeSubscription?.cancel();
     _shuffleSubscription?.cancel();
-    _playbackTimer?.cancel();
+    _flushTimer?.cancel();
+    _flushSegment(keepRunning: false);
     super.dispose();
   }
 }

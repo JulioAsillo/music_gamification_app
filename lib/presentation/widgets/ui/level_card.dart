@@ -13,6 +13,7 @@ class LevelCard extends StatelessWidget {
     required this.level,
     required this.currentXp,
     required this.nextLevelXp,
+    this.levelStartXp = 0,
     this.onTap,
   });
 
@@ -23,6 +24,10 @@ class LevelCard extends StatelessWidget {
 
   /// XP total necesario para alcanzar el siguiente nivel.
   final int nextLevelXp;
+
+  /// XP total con el que se alcanzó el nivel actual (la barra se llena
+  /// solo con el XP ganado dentro del nivel).
+  final int levelStartXp;
   final VoidCallback? onTap;
 
   static String _fmt(int n) {
@@ -40,7 +45,8 @@ class LevelCard extends StatelessWidget {
     final p = context.palette;
     final tt = Theme.of(context).textTheme;
     final remaining = (nextLevelXp - currentXp).clamp(0, nextLevelXp).toInt();
-    final double progress = nextLevelXp <= 0 ? 0.0 : currentXp / nextLevelXp;
+    final span = nextLevelXp - levelStartXp;
+    final double progress = span <= 0 ? 0.0 : (currentXp - levelStartXp) / span;
 
     return AppCard(
       onTap: onTap,

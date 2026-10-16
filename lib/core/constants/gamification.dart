@@ -21,4 +21,13 @@ abstract final class Gamification {
 
   /// XP total necesario para llegar a [level]: `(nivel - 1)² × 1000`.
   static int xpToReach(int level) => (level - 1) * (level - 1) * 1000;
+
+  /// Racha vigente para mostrar: si la última escucha fue antes de ayer,
+  /// la racha ya se rompió aunque la BD aún guarde el número anterior.
+  static int activeStreak(int storedDays, DateTime lastListening, [DateTime? now]) {
+    final n = now ?? DateTime.now();
+    final today = DateTime(n.year, n.month, n.day);
+    final last = DateTime(lastListening.year, lastListening.month, lastListening.day);
+    return today.difference(last).inDays <= 1 ? storedDays : 0;
+  }
 }
