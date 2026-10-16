@@ -9,28 +9,28 @@ part 'repositories_provider.g.dart';
 
 /// Provider del repositorio de tracks
 @Riverpod(keepAlive: true)
-TracksRepository tracksRepository(TracksRepositoryRef ref) {
+TracksRepository tracksRepository(Ref ref) {
   final database = ref.watch(appDatabaseProvider);
   return TracksRepository(database);
 }
 
 /// Provider del repositorio de sesiones de reproducción
 @Riverpod(keepAlive: true)
-PlaySessionsRepository playSessionsRepository(PlaySessionsRepositoryRef ref) {
+PlaySessionsRepository playSessionsRepository(Ref ref) {
   final database = ref.watch(appDatabaseProvider);
   return PlaySessionsRepository(database);
 }
 
 /// Provider del repositorio de estadísticas
 @Riverpod(keepAlive: true)
-StatsRepository statsRepository(StatsRepositoryRef ref) {
+StatsRepository statsRepository(Ref ref) {
   final database = ref.watch(appDatabaseProvider);
   return StatsRepository(database);
 }
 
 /// Provider del repositorio de logros
 @Riverpod(keepAlive: true)
-AchievementsRepository achievementsRepository(AchievementsRepositoryRef ref) {
+AchievementsRepository achievementsRepository(Ref ref) {
   final database = ref.watch(appDatabaseProvider);
   return AchievementsRepository(database);
 }

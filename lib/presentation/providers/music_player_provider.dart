@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart'; // Riverpod 3: StateProvider/StateNotifier viven aquí
 import 'package:just_audio/just_audio.dart';
 import '../../data/models/track.dart';
 import '../../domain/services/audio_player_service.dart';

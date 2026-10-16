@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart'; // Riverpod 3: StateProvider/StateNotifier viven aquí
 import '../widgets/custom_bottom_nav_bar.dart';
 import '../widgets/mini_player.dart';
 import 'library/library_screen.dart';

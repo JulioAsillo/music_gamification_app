@@ -5,7 +5,7 @@ part 'database_provider.g.dart';
 
 /// Provider de la base de datos (singleton)
 @Riverpod(keepAlive: true)
-AppDatabase appDatabase(AppDatabaseRef ref) {
+AppDatabase appDatabase(Ref ref) {
   final database = AppDatabase();
 
   // Cleanup cuando el provider se destruye

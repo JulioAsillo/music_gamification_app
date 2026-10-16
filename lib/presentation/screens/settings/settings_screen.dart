@@ -9,7 +9,7 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeNotifierProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -27,7 +27,7 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: const Text('Cambiar entre tema claro y oscuro'),
             value: themeMode == ThemeMode.dark,
             onChanged: (value) {
-              ref.read(themeModeNotifierProvider.notifier).toggleTheme();
+              ref.read(themeModeProvider.notifier).toggleTheme();
             },
           ),
 
