@@ -1,533 +1,357 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' show LoopMode;
-import 'dart:io';
-import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_text_styles.dart';
-import '../../../core/utils/duration_formatter.dart';
-import '../../providers/music_player_provider.dart';
-import '../../providers/favorites_provider.dart';
-import '../../providers/tracks_provider.dart';
 
-/// 🎵 Pantalla del reproductor expandido
-class PlayerScreen extends ConsumerWidget {
+import '../../../core/constants/gamification.dart';
+import '../../../core/utils/formatters.dart';
+import '../../../data/models/track.dart';
+import '../../providers/favorites_provider.dart';
+import '../../providers/music_player_provider.dart';
+import '../../providers/stats_provider.dart';
+import '../../providers/tracks_provider.dart';
+import '../../widgets/track_actions.dart';
+import '../../widgets/ui/ui.dart';
+
+/// Reproductor completo (diseño "7 · Reproductor completo").
+///
+/// Se abre como ruta modal desde el mini-player y sube desde abajo.
+class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final playerState = ref.watch(musicPlayerProvider);
-    final currentTrack = playerState.currentTrack;
+  ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
+}
 
-    if (currentTrack == null) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: const Center(
-          child: Text('No hay música reproduciéndose'),
-        ),
-      );
+class _PlayerScreenState extends ConsumerState<PlayerScreen> {
+  /// Valor del slider mientras el usuario arrastra (null = sigue al audio).
+  double? _dragMs;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final tt = Theme.of(context).textTheme;
+    final state = ref.watch(musicPlayerProvider);
+    final notifier = ref.read(musicPlayerProvider.notifier);
+    final track = state.currentTrack;
+
+    if (track == null) {
+      // La cola terminó o se limpió: no hay nada que mostrar.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
+      });
+      return Scaffold(backgroundColor: p.bg);
     }
 
+    // isFavorite en vivo (el Track de la cola puede estar desactualizado)
+    final isFavorite = ref.watch(watchAllTracksProvider.select(
+      (v) => v.value?.firstWhere((t) => t.id == track.id, orElse: () => track).isFavorite ?? track.isFavorite,
+    ));
+    final streak = ref.watch(watchUserStatsProvider).value?.currentStreakDays ?? 0;
+
+    final totalMs = (state.duration?.inMilliseconds ?? track.durationMs).toDouble();
+    final posMs = (_dragMs ?? state.position.inMilliseconds.toDouble()).clamp(0.0, totalMs <= 0 ? 1.0 : totalMs);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? AppColors.darkBackground
-          : Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header con botón de cerrar
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.keyboard_arrow_down, size: 32),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Text(
-                    'Reproduciendo',
-                    style: AppTextStyles.body1(context).copyWith(
-                      fontWeight: FontWeight.w600,
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            stops: const [0, 0.55],
+            colors: [p.accent.withValues(alpha: isDark ? 0.33 : 0.2), p.bg],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: [
+                // ── Barra superior ──
+                Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Cerrar',
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 32),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    onPressed: () {
-                      _showOptionsMenu(context, ref, currentTrack.id!);
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Cover Art
-            Expanded(
-              child: Center(
-                child: Hero(
-                  tag: 'cover_${currentTrack.id}',
-                  child: Container(
-                    width: MediaQuery.of(context).size.width * 0.85,
-                    height: MediaQuery.of(context).size.width * 0.85,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.3),
-                          blurRadius: 30,
-                          spreadRadius: 5,
-                        ),
-                      ],
+                    Expanded(
+                      child: Text(
+                        'REPRODUCIENDO DESDE BIBLIOTECA',
+                        textAlign: TextAlign.center,
+                        style: tt.labelSmall?.copyWith(letterSpacing: 1.2, fontWeight: FontWeight.w700),
+                      ),
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: currentTrack.coverArtPath != null &&
-                             File(currentTrack.coverArtPath!).existsSync()
-                          ? Image.file(
-                              File(currentTrack.coverArtPath!),
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: AppColors.primary.withValues(alpha: 0.2),
-                                  child: Icon(
-                                    Icons.music_note,
-                                    size: 120,
-                                    color: AppColors.primary,
-                                  ),
-                                );
-                              },
-                            )
-                          : Container(
-                              color: AppColors.primary.withValues(alpha: 0.2),
-                              child: Icon(
-                                Icons.music_note,
-                                size: 120,
-                                color: AppColors.primary,
-                              ),
-                            ),
+                    IconButton(
+                      tooltip: 'Más opciones',
+                      icon: const Icon(Icons.more_horiz_rounded),
+                      onPressed: () => showTrackActions(context, ref, track),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // ── Portada ──
+                Expanded(
+                  child: Center(
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: Hero(
+                        tag: 'player-cover',
+                        child: TrackCover.track(track, size: double.infinity, radius: 28, showIcon: true),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
+                const SizedBox(height: 24),
 
-            const SizedBox(height: 40),
+                // ── Título + favorito ──
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            track.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: tt.headlineMedium?.copyWith(fontSize: 24),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${track.artist} · ${track.album}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: tt.bodyMedium?.copyWith(color: p.text2),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (track.id != null)
+                      IconButton(
+                        tooltip: isFavorite ? 'Quitar de favoritas' : 'Agregar a favoritas',
+                        icon: Icon(isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded),
+                        color: isFavorite ? p.accent : p.text2,
+                        onPressed: () => ref.read(favoritesNotifierProvider.notifier).toggleFavorite(track.id!),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
 
-            // Info de la canción
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // ── Progreso ──
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 4,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                  ),
+                  child: Slider(
+                    min: 0,
+                    max: totalMs <= 0 ? 1 : totalMs,
+                    value: posMs.toDouble(),
+                    onChanged: (v) => setState(() => _dragMs = v),
+                    onChangeEnd: (v) {
+                      notifier.seek(Duration(milliseconds: v.round()));
+                      setState(() => _dragMs = null);
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      Text(Fmt.trackDuration(posMs.round()), style: tt.labelSmall),
+                      const Spacer(),
+                      Text(Fmt.trackDuration(totalMs.round()), style: tt.labelSmall),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // ── Controles ──
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      tooltip: 'Aleatorio',
+                      icon: const Icon(Icons.shuffle_rounded),
+                      color: state.shuffleEnabled ? p.accent : p.text2,
+                      onPressed: notifier.toggleShuffle,
+                    ),
+                    IconButton(
+                      tooltip: 'Anterior',
+                      iconSize: 38,
+                      icon: const Icon(Icons.skip_previous_rounded),
+                      color: p.text,
+                      onPressed: notifier.skipToPrevious,
+                    ),
+                    _PlayButton(
+                      isPlaying: state.isPlaying,
+                      isLoading: state.isLoading,
+                      onPressed: notifier.playPause,
+                    ),
+                    IconButton(
+                      tooltip: 'Siguiente',
+                      iconSize: 38,
+                      icon: const Icon(Icons.skip_next_rounded),
+                      color: p.text,
+                      onPressed: state.hasNext || state.loopMode == LoopMode.all ? notifier.skipToNext : null,
+                    ),
+                    IconButton(
+                      tooltip: switch (state.loopMode) {
+                        LoopMode.off => 'Repetir todo',
+                        LoopMode.all => 'Repetir una',
+                        LoopMode.one => 'No repetir',
+                      },
+                      icon: Icon(state.loopMode == LoopMode.one ? Icons.repeat_one_rounded : Icons.repeat_rounded),
+                      color: state.loopMode == LoopMode.off ? p.text2 : p.accent,
+                      onPressed: notifier.toggleLoopMode,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // ── XP + cola ──
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: p.surface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: p.divider),
+                        ),
+                        child: Row(
                           children: [
                             Text(
-                              currentTrack.title,
-                              style: AppTextStyles.heading2(context),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                              '+${Gamification.xpPerSong} XP',
+                              style: tt.labelLarge?.copyWith(color: AppPalette.success),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              currentTrack.artist,
-                              style: AppTextStyles.body1(context).copyWith(
-                                color: AppColors.textSecondary,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                streak > 0
+                                    ? 'por esta canción · racha de $streak ${streak == 1 ? 'día' : 'días'} activa'
+                                    : 'por esta canción',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: tt.labelSmall,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
                       ),
-                      // Consumer para observar cambios en tiempo real del favorito
-                      Consumer(
-                        builder: (context, ref, child) {
-                          // Observar los tracks actualizados para obtener el estado real de favorito
-                          final tracksAsync = ref.watch(watchAllTracksProvider);
-                          final isFavorite = tracksAsync.whenOrNull(
-                            data: (tracks) => tracks
-                                .firstWhere((t) => t.id == currentTrack.id,
-                                    orElse: () => currentTrack)
-                                .isFavorite,
-                          ) ?? currentTrack.isFavorite;
-
-                          return IconButton(
-                            icon: Icon(
-                              isFavorite
-                                  ? Icons.favorite
-                                  : Icons.favorite_border,
-                              color: isFavorite
-                                  ? AppColors.accent
-                                  : AppColors.textSecondary,
-                            ),
-                            iconSize: 32,
-                            onPressed: () async {
-                              await ref.read(favoritesNotifierProvider.notifier)
-                                  .toggleFavorite(currentTrack.id!);
-
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      isFavorite
-                                          ? '💔 Eliminado de favoritos'
-                                          : '❤️ Agregado a favoritos',
-                                    ),
-                                    duration: const Duration(seconds: 2),
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                              }
-                            },
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            // Barra de progreso
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0),
-              child: Column(
-                children: [
-                  SliderTheme(
-                    data: SliderThemeData(
-                      trackHeight: 4,
-                      thumbShape: const RoundSliderThumbShape(
-                        enabledThumbRadius: 6,
-                      ),
-                      overlayShape: const RoundSliderOverlayShape(
-                        overlayRadius: 14,
-                      ),
                     ),
-                    child: Slider(
-                      value: playerState.progress.clamp(0.0, 1.0),
-                      onChanged: (value) {
-                        if (playerState.duration != null) {
-                          final position = playerState.duration! * value;
-                          ref.read(musicPlayerProvider.notifier).seek(position);
-                        }
-                      },
-                      activeColor: AppColors.primary,
-                      inactiveColor: AppColors.textSecondary.withValues(alpha: 0.2),
+                    const SizedBox(width: 10),
+                    CircleIconButton(
+                      icon: Icons.queue_music_rounded,
+                      tooltip: 'Cola de reproducción',
+                      onPressed: () => _showQueue(context),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          DurationFormatter.format(playerState.position),
-                          style: AppTextStyles.caption(context),
-                        ),
-                        Text(
-                          DurationFormatter.format(
-                            playerState.duration ?? Duration.zero,
-                          ),
-                          style: AppTextStyles.caption(context),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Controles principales
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // Botón shuffle
-                  IconButton(
-                    icon: Icon(
-                      Icons.shuffle,
-                      color: playerState.shuffleEnabled
-                          ? AppColors.primary
-                          : AppColors.textSecondary,
-                    ),
-                    iconSize: 28,
-                    onPressed: () {
-                      ref.read(musicPlayerProvider.notifier).toggleShuffle();
-                    },
-                  ),
-
-                  // Botón anterior
-                  IconButton(
-                    icon: const Icon(Icons.skip_previous),
-                    iconSize: 48,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? AppColors.textPrimary
-                        : Colors.black87,
-                    onPressed: playerState.hasPrevious
-                        ? () => ref.read(musicPlayerProvider.notifier).skipToPrevious()
-                        : null,
-                  ),
-
-                  // Botón play/pause
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.primary,
-                          AppColors.accent,
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.4),
-                          blurRadius: 20,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        playerState.isPlaying
-                            ? Icons.pause
-                            : Icons.play_arrow,
-                        size: 36,
-                        color: Colors.white,
-                      ),
-                      onPressed: () {
-                        ref.read(musicPlayerProvider.notifier).playPause();
-                      },
-                    ),
-                  ),
-
-                  // Botón siguiente
-                  IconButton(
-                    icon: const Icon(Icons.skip_next),
-                    iconSize: 48,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? AppColors.textPrimary
-                        : Colors.black87,
-                    onPressed: playerState.hasNext
-                        ? () => ref.read(musicPlayerProvider.notifier).skipToNext()
-                        : null,
-                  ),
-
-                  // Botón repeat
-                  IconButton(
-                    icon: Icon(
-                      playerState.loopMode == LoopMode.one
-                          ? Icons.repeat_one
-                          : Icons.repeat,
-                      color: playerState.loopMode != LoopMode.off
-                          ? AppColors.primary
-                          : AppColors.textSecondary,
-                    ),
-                    iconSize: 28,
-                    onPressed: () {
-                      ref.read(musicPlayerProvider.notifier).toggleLoopMode();
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            // Botón de cola de reproducción
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0),
-              child: ListTile(
-                leading: const Icon(Icons.queue_music),
-                title: Text(
-                  'Cola de reproducción',
-                  style: AppTextStyles.body1(context),
+                  ],
                 ),
-                subtitle: Text(
-                  '${playerState.queue.length} canciones',
-                  style: AppTextStyles.caption(context),
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  _showQueueBottomSheet(context, ref);
-                },
-              ),
-            ),
-
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Mostrar menú de opciones
-  void _showOptionsMenu(BuildContext context, WidgetRef ref, int trackId) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.playlist_add),
-              title: const Text('Agregar a playlist'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Implementar agregar a playlist
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.share),
-              title: const Text('Compartir'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Implementar compartir
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: const Text('Información'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Mostrar info del track
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Mostrar cola de reproducción
-  void _showQueueBottomSheet(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (context, scrollController) {
-          final playerState = ref.watch(musicPlayerProvider);
-          final queue = playerState.queue;
-
-          return Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
-            ),
-            child: Column(
-              children: [
-                // Handle
-                Container(
-                  margin: const EdgeInsets.symmetric(vertical: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-
-                // Header
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Cola de reproducción',
-                        style: AppTextStyles.heading3(context),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          // TODO: Limpiar cola
-                        },
-                        child: const Text('Limpiar'),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const Divider(),
-
-                // Lista de canciones
-                Expanded(
-                  child: ListView.builder(
-                    controller: scrollController,
-                    itemCount: queue.length,
-                    itemBuilder: (context, index) {
-                      final track = queue[index];
-                      final isCurrent = index == playerState.currentIndex;
-
-                      return ListTile(
-                        leading: Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: isCurrent
-                              ? Icon(
-                                  Icons.graphic_eq,
-                                  color: AppColors.primary,
-                                )
-                              : Icon(
-                                  Icons.music_note,
-                                  color: AppColors.primary.withValues(alpha: 0.6),
-                                ),
-                        ),
-                        title: Text(
-                          track.title,
-                          style: AppTextStyles.body1(context).copyWith(
-                            color: isCurrent ? AppColors.primary : null,
-                            fontWeight: isCurrent ? FontWeight.w600 : null,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          track.artist,
-                          style: AppTextStyles.caption(context),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.close, size: 20),
-                          onPressed: () {
-                            // TODO: Eliminar de la cola
-                          },
-                        ),
-                        onTap: () {
-                          ref.read(musicPlayerProvider.notifier).skipToIndex(index);
-                          Navigator.pop(context);
-                        },
-                      );
-                    },
-                  ),
-                ),
+                const SizedBox(height: 12),
               ],
             ),
-          );
-        },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showQueue(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      builder: (_) => const _QueueSheet(),
+    );
+  }
+}
+
+class _PlayButton extends StatelessWidget {
+  const _PlayButton({required this.isPlaying, required this.isLoading, required this.onPressed});
+
+  final bool isPlaying;
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Material(
+      color: p.accent,
+      shape: const CircleBorder(),
+      elevation: 0,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onPressed,
+        child: SizedBox.square(
+          dimension: 72,
+          child: Center(
+            child: isLoading
+                ? SizedBox.square(
+                    dimension: 28,
+                    child: CircularProgressIndicator(strokeWidth: 3, color: p.onAccent),
+                  )
+                : Icon(
+                    isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    size: 40,
+                    color: p.onAccent,
+                    semanticLabel: isPlaying ? 'Pausar' : 'Reproducir',
+                  ),
+          ),
+        ),
       ),
     );
   }
 }
 
+class _QueueSheet extends ConsumerWidget {
+  const _QueueSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tt = Theme.of(context).textTheme;
+    final state = ref.watch(musicPlayerProvider);
+    final List<Track> queue = state.queue;
+    final current = state.currentIndex;
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.6,
+      maxChildSize: 0.92,
+      builder: (context, controller) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Text('Cola · ${Fmt.songs(queue.length)}', style: tt.titleLarge),
+          ),
+          Expanded(
+            child: ListView.builder(
+              controller: controller,
+              itemCount: queue.length,
+              itemBuilder: (context, i) {
+                final t = queue[i];
+                return SongTile(
+                  leading: TrackCover.track(t),
+                  title: t.title,
+                  subtitle: t.artist,
+                  duration: Fmt.trackDuration(t.durationMs),
+                  isPlaying: i == current,
+                  onTap: () {
+                    ref.read(musicPlayerProvider.notifier).skipToIndex(i);
+                    Navigator.of(context).pop();
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
