@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_palette.dart';
-
-part 'theme_provider.g.dart';
 
 /// Instancia de SharedPreferences cargada en `main()` antes de `runApp`.
 ///
@@ -19,8 +16,12 @@ const _kThemeModeKey = 'theme_mode';
 const _kAccentKey = 'accent_color';
 
 /// Modo de tema: Claro / Oscuro / Sistema. Se persiste.
-@Riverpod(keepAlive: true)
-class ThemeModeNotifier extends _$ThemeModeNotifier {
+///
+/// Provider escrito a mano (sin build_runner) para que el tema no dependa
+/// de regenerar código.
+final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(ThemeModeNotifier.new);
+
+class ThemeModeNotifier extends Notifier<ThemeMode> {
   @override
   ThemeMode build() {
     final saved = ref.watch(sharedPreferencesProvider).getString(_kThemeModeKey);
@@ -45,8 +46,9 @@ class ThemeModeNotifier extends _$ThemeModeNotifier {
 }
 
 /// Color de acento elegido por el usuario. Se persiste.
-@Riverpod(keepAlive: true)
-class AccentColorNotifier extends _$AccentColorNotifier {
+final accentColorProvider = NotifierProvider<AccentColorNotifier, AppAccent>(AccentColorNotifier.new);
+
+class AccentColorNotifier extends Notifier<AppAccent> {
   @override
   AppAccent build() {
     final saved = ref.watch(sharedPreferencesProvider).getString(_kAccentKey);

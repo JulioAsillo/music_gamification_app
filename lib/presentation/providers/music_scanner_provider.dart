@@ -1,4 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart'; // Riverpod 3: StateProvider/StateNotifier viven aquí
 import 'package:drift/drift.dart' as drift;
 import 'dart:io';
