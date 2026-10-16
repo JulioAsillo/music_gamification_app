@@ -1,106 +1,135 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/constants/app_text_styles.dart';
-import '../../providers/theme_provider.dart';
 
-/// Pantalla de ajustes
+import '../../providers/theme_provider.dart';
+import '../../widgets/ui/ui.dart';
+import 'design_preview_screen.dart';
+
+/// Pantalla de ajustes.
+///
+/// Fase 2: la sección Apariencia ya usa el sistema de diseño nuevo
+/// (modo Claro/Oscuro/Sistema + color de acento). En la Fase 6 esta pantalla
+/// se convierte en "Perfil".
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
+
+  static const _modes = [ThemeMode.light, ThemeMode.dark, ThemeMode.system];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final accent = ref.watch(accentColorProvider);
+    final p = context.palette;
+    final tt = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Ajustes',
-          style: AppTextStyles.heading2(context),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+          children: [
+            const ScreenTitle('Ajustes'),
+            const SizedBox(height: 20),
+
+            // ── Apariencia ──
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Apariencia', style: tt.titleMedium),
+                  const SizedBox(height: 14),
+                  Text('Modo', style: tt.bodySmall),
+                  const SizedBox(height: 8),
+                  SegmentedTabs(
+                    labels: const ['Claro', 'Oscuro', 'Sistema'],
+                    selectedIndex: _modes.indexOf(themeMode),
+                    onChanged: (i) => ref.read(themeModeProvider.notifier).setMode(_modes[i]),
+                  ),
+                  const SizedBox(height: 18),
+                  Text('Color de acento · ${accent.label}', style: tt.bodySmall),
+                  const SizedBox(height: 12),
+                  AccentPicker(
+                    selected: accent,
+                    onChanged: (a) => ref.read(accentColorProvider.notifier).setAccent(a),
+                  ),
+                  const SizedBox(height: 4),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Música / Datos / Info ──
+            AppCard(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Column(
+                children: [
+                  _SettingsRow(
+                    icon: Icons.folder_open_rounded,
+                    title: 'Escanear música',
+                    subtitle: 'Buscar canciones en el dispositivo',
+                    onTap: () {
+                      // Fase 3: abre el bottom sheet de escaneo
+                    },
+                  ),
+                  _SettingsRow(
+                    icon: Icons.delete_outline_rounded,
+                    title: 'Almacenamiento y caché',
+                    subtitle: 'Eliminar archivos temporales',
+                    onTap: () {
+                      // Fase 6
+                    },
+                  ),
+                  _SettingsRow(
+                    icon: Icons.palette_outlined,
+                    title: 'Vista previa del diseño',
+                    subtitle: 'Componentes del sistema de diseño',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const DesignPreviewScreen()),
+                    ),
+                  ),
+                  _SettingsRow(
+                    icon: Icons.info_outline_rounded,
+                    title: 'Acerca de',
+                    subtitle: 'Versión 1.0.0',
+                    onTap: () {
+                      // Fase 6
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: Text('MusiQuest', style: tt.labelSmall?.copyWith(color: p.text2)),
+            ),
+          ],
         ),
-      ),
-      body: ListView(
-        children: [
-          // Sección de Apariencia
-          _SectionHeader(title: 'Apariencia'),
-          SwitchListTile(
-            title: const Text('Modo Oscuro'),
-            subtitle: const Text('Cambiar entre tema claro y oscuro'),
-            value: themeMode == ThemeMode.dark,
-            onChanged: (value) {
-              ref.read(themeModeProvider.notifier).toggleTheme();
-            },
-          ),
-
-          const Divider(),
-
-          // Sección de Música
-          _SectionHeader(title: 'Música'),
-          ListTile(
-            leading: const Icon(Icons.folder_open),
-            title: const Text('Escanear Música'),
-            subtitle: const Text('Buscar canciones en el dispositivo'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              // TODO: Implementar escaneo
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.refresh),
-            title: const Text('Actualizar Biblioteca'),
-            subtitle: const Text('Re-escanear archivos de música'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              // TODO: Implementar actualización
-            },
-          ),
-
-          const Divider(),
-
-          // Sección de Datos
-          _SectionHeader(title: 'Datos'),
-          ListTile(
-            leading: const Icon(Icons.delete_forever),
-            title: const Text('Limpiar Caché'),
-            subtitle: const Text('Eliminar archivos temporales'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              // TODO: Implementar limpieza
-            },
-          ),
-
-          const Divider(),
-
-          // Sección de Información
-          _SectionHeader(title: 'Información'),
-          ListTile(
-            leading: const Icon(Icons.info),
-            title: const Text('Acerca de'),
-            subtitle: const Text('Versión 1.0.0'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              // TODO: Mostrar información de la app
-            },
-          ),
-        ],
       ),
     );
   }
 }
 
-/// Header de sección
-class _SectionHeader extends StatelessWidget {
-  final String title;
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
 
-  const _SectionHeader({required this.title});
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Text(
-        title,
-        style: AppTextStyles.heading3(context),
-      ),
+    final p = context.palette;
+    return ListTile(
+      leading: Icon(icon, color: p.text2),
+      title: Text(title, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle),
+      trailing: Icon(Icons.chevron_right_rounded, color: p.text2),
+      onTap: onTap,
     );
   }
 }

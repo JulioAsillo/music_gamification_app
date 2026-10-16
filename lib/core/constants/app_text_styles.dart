@@ -6,7 +6,7 @@ class AppTextStyles {
   AppTextStyles._();
 
   // 📱 BASE FONT FAMILY
-  static String get fontFamily => GoogleFonts.inter().fontFamily!;
+  static String get fontFamily => GoogleFonts.figtree().fontFamily!;
 
   // 🔤 HEADINGS
   static TextStyle heading1(BuildContext context) => TextStyle(

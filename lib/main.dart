@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:music_gamification_app/presentation/providers/theme_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'core/theme/app_theme.dart';
-import 'presentation/screens/main_screen.dart';
 import 'domain/services/audio_player_service.dart';
+import 'presentation/providers/theme_provider.dart';
+import 'presentation/screens/main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,9 +13,13 @@ void main() async {
   // 🎵 Inicializar AudioService al inicio
   await AudioPlayerService.instance.initialize();
 
+  // 🎨 Preferencias de tema (modo + acento) cargadas antes de pintar la app
+  final prefs = await SharedPreferences.getInstance();
+
   runApp(
-    const ProviderScope(
-      child: MyApp(),
+    ProviderScope(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      child: const MyApp(),
     ),
   );
 }
@@ -24,14 +30,15 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final accent = ref.watch(accentColorProvider);
 
     return MaterialApp(
-      title: 'Music Gamification',
+      title: 'MusiQuest',
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      home: const MainScreen(), // ✅ Cambiado a MainScreen
+      theme: AppTheme.light(accent),
+      darkTheme: AppTheme.dark(accent),
+      home: const MainScreen(),
     );
   }
 }
