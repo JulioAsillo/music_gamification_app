@@ -16,7 +16,7 @@ dependencies:
   audio_service: ^0.18.19
 
   # 📁 ACCESO A ARCHIVOS Y PERMISOS
-  permission_handler: ^13.0.2   # requiere compileSdk 37 (lo da flutter.compileSdkVersion en Flutter reciente)
+  permission_handler: ^12.0.1   # 13.x exige compileSdk 37 y AGP 9; se sube cuando migremos Gradle
   path_provider: ^2.1.5
 
   # 🎨 METADATOS DE AUDIO

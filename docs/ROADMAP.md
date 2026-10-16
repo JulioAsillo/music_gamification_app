@@ -66,6 +66,17 @@ Sin cambios visuales.
 
 ---
 
+## Tarea aparte · Actualizar toolchain Android
+Flutter 3.47 avisa que pronto dejará de soportar la configuración actual:
+- Gradle 8.14 → **9.1+**
+- Android Gradle Plugin 8.11.1 → **9.0.1+**
+- Kotlin 2.2.20 → **2.3.20+**
+- Al hacerlo: volver a `permission_handler: ^13.x` (requiere compileSdk 37) y ya no hará falta forzar JDK 21.
+
+Hacerlo entre fases, con la app estable, en su propia rama.
+
+---
+
 ## Estado
 
 | Fase | Estado |
