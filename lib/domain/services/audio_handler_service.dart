@@ -1,5 +1,6 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
+import '../../core/constants/app_constants.dart';
 import '../../data/models/track.dart';
 import 'dart:io';
 
@@ -158,6 +159,13 @@ class MusicAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
   @override
   Future<void> seek(Duration position) async {
     await _player.seek(position);
+  }
+
+  /// La app no tiene velocidad variable: si el sistema (controles de medios)
+  /// pide otra velocidad, se ignora y la reproducción se mantiene a 1x.
+  @override
+  Future<void> setSpeed(double speed) async {
+    await _player.setSpeed(AppConstants.defaultPlaybackSpeed);
   }
 
   @override
