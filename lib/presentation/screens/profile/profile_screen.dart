@@ -145,11 +145,16 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   Future<void> _editName(BuildContext context, WidgetRef ref, String current) async {
-    final result = await showDialog<String>(
+    final result = await showModalBottomSheet<String>(
       context: context,
-      builder: (_) => _NameDialog(initial: current),
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => _EditNameSheet(initial: current),
     );
-    if (result != null) ref.read(displayNameProvider.notifier).set(result);
+    if (result == null || !context.mounted) return;
+    ref.read(displayNameProvider.notifier).set(result);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nombre actualizado')));
   }
 
   /// Borra los archivos temporales de la app y la caché de imágenes en memoria.
@@ -194,20 +199,21 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
-/// Diálogo para editar el nombre. Es dueño de su [TextEditingController]:
-/// se libera cuando el diálogo se desmonta, no antes (la animación de salida
-/// todavía usa el TextField).
-class _NameDialog extends StatefulWidget {
-  const _NameDialog({required this.initial});
+/// Hoja para editar el nombre de usuario. Valida que no esté vacío, muestra
+/// una vista previa del avatar y es dueña de su [TextEditingController]
+/// (se libera al desmontarse, no antes de la animación de salida).
+class _EditNameSheet extends StatefulWidget {
+  const _EditNameSheet({required this.initial});
 
   final String initial;
 
   @override
-  State<_NameDialog> createState() => _NameDialogState();
+  State<_EditNameSheet> createState() => _EditNameSheetState();
 }
 
-class _NameDialogState extends State<_NameDialog> {
+class _EditNameSheetState extends State<_EditNameSheet> {
   late final TextEditingController _controller = TextEditingController(text: widget.initial);
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
@@ -215,25 +221,81 @@ class _NameDialogState extends State<_NameDialog> {
     super.dispose();
   }
 
+  void _save() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    Navigator.of(context).pop(_controller.text.trim());
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Tu nombre'),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        maxLength: 30,
-        textCapitalization: TextCapitalization.words,
-        decoration: const InputDecoration(hintText: 'Cómo quieres que te llamemos'),
-        onSubmitted: (v) => Navigator.of(context).pop(v),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(_controller.text),
-          child: const Text('Guardar'),
+    final p = context.palette;
+    final tt = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 4, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+      child: Form(
+        key: _formKey,
+        child: ListenableBuilder(
+          listenable: _controller,
+          builder: (context, _) {
+            final typed = _controller.text.trim();
+            final initial = typed.isEmpty ? '♪' : typed.characters.first.toUpperCase();
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Nombre de usuario', style: tt.titleLarge),
+                const SizedBox(height: 4),
+                Text('Así aparecerás en tu perfil.', style: tt.bodySmall),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 26,
+                      backgroundColor: p.accent,
+                      child: Text(
+                        initial,
+                        style: tt.titleLarge?.copyWith(color: p.onAccent, fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _controller,
+                        autofocus: true,
+                        maxLength: 30,
+                        textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _save(),
+                        decoration: const InputDecoration(hintText: 'Escribe tu nombre'),
+                        validator: (v) {
+                          final clean = (v ?? '').trim();
+                          if (clean.isEmpty) return 'El nombre no puede estar vacío';
+                          if (clean.length < 2) return 'Usa al menos 2 caracteres';
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cancelar'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(onPressed: _save, child: const Text('Guardar')),
+                  ],
+                ),
+              ],
+            );
+          },
         ),
-      ],
+      ),
     );
   }
 }

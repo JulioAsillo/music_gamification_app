@@ -206,11 +206,10 @@ class MusicPlayerNotifier extends StateNotifier<PlayerState> {
 
   /// Play/Pause
   Future<void> playPause() async {
-    // Actualizar estado inmediatamente para feedback visual rápido
-    final willPlay = !state.isPlaying;
-    state = state.copyWith(isPlaying: willPlay);
-
+    // El estado visible sale del reproductor real, nunca de una suposición:
+    // alternar un valor optimista podía desincronizar el botón.
     await _audioService.playPause();
+    state = state.copyWith(isPlaying: _audioService.isPlaying);
   }
 
   /// Siguiente track

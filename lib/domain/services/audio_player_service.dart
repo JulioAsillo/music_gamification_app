@@ -19,6 +19,7 @@ class AudioPlayerService {
   bool _isInitialized = false;
   bool _isInitializing = false;
   bool _useFallback = false;
+  MusicAudioHandler? _createdHandler;
   List<Track> _fallbackQueue = [];
   int? _fallbackIndex;
 
@@ -34,7 +35,7 @@ class AudioPlayerService {
 
     try {
       _audioHandler = await AudioService.init(
-        builder: () => MusicAudioHandler(),
+        builder: () => _createdHandler = MusicAudioHandler(),
         config: const AudioServiceConfig(
           androidNotificationChannelId: 'com.musicgamification.music_gamification_app.audio',
           androidNotificationChannelName: 'Reproducción de Música',
@@ -57,6 +58,10 @@ class AudioPlayerService {
     } catch (e) {
       print('❌ Error inicializando AudioPlayerService: $e');
       print('🔄 Usando reproductor de respaldo sin notificaciones');
+      // Si el handler llegó a crearse, libera su reproductor: dos AudioPlayer
+      // vivos generan estados contradictorios entre el botón y el sonido.
+      await _createdHandler?.customAction('dispose');
+      _createdHandler = null;
       _fallbackPlayer = AudioPlayer();
       _useFallback = true;
       _isInitialized = true;
@@ -103,7 +108,7 @@ class AudioPlayerService {
         initialPosition: Duration.zero,
       );
 
-      await _fallbackPlayer!.play();
+      unawaited(_fallbackPlayer!.play()); // no bloquear: ver audio_handler_service
       print('✅ Fallback: Reproducción iniciada');
     } catch (e) {
       print('❌ Error en fallback: $e');
@@ -118,7 +123,7 @@ class AudioPlayerService {
   Future<void> play() async {
     print('▶️ AudioPlayerService.play()');
     if (_useFallback && _fallbackPlayer != null) {
-      await _fallbackPlayer!.play();
+      unawaited(_fallbackPlayer!.play());
     } else if (_audioHandler != null) {
       await handler!.play();
     }
@@ -146,7 +151,7 @@ class AudioPlayerService {
       if (_fallbackPlayer!.playing) {
         await _fallbackPlayer!.pause();
       } else {
-        await _fallbackPlayer!.play();
+        unawaited(_fallbackPlayer!.play());
       }
     } else if (_audioHandler != null) {
       if (handler!.isPlaying) {

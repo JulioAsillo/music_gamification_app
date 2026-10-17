@@ -2,6 +2,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../core/constants/app_constants.dart';
 import '../../data/models/track.dart';
+import 'dart:async' show unawaited;
 import 'dart:io';
 
 /// 🎵 Handler de audio para integración con notificaciones del sistema
@@ -131,8 +132,10 @@ class MusicAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
       );
 
       print('🎯 Iniciando reproducción...');
-      await _player.play();
-      print('✅ Reproducción iniciada - Estado del player: ${_player.playing}');
+      // No se hace await: el Future de play() de just_audio solo termina al
+      // pausar o al acabar la canción, y bloquearía el flujo de estado.
+      unawaited(_player.play());
+      print('✅ Reproducción iniciada');
     } catch (e, stackTrace) {
       print('❌ Error en playTracks: $e');
       print('Stack trace: $stackTrace');
@@ -142,7 +145,8 @@ class MusicAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
 
   @override
   Future<void> play() async {
-    await _player.play();
+    // Sin await (ver playTracks): el Future de just_audio dura hasta la pausa.
+    unawaited(_player.play());
   }
 
   @override
