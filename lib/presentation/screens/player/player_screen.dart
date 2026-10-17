@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' show LoopMode;
@@ -53,16 +56,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            stops: const [0, 0.55],
-            colors: [p.accent.withValues(alpha: isDark ? 0.33 : 0.2), p.bg],
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          _PlayerBackdrop(
+            coverPath: track.coverArtPath,
+            tint: p.accent.withValues(alpha: isDark ? 0.33 : 0.2),
+            background: p.bg,
+            isDark: isDark,
           ),
-        ),
-        child: SafeArea(
+          SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
@@ -257,6 +260,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             ),
           ),
         ),
+        ],
       ),
     );
   }
@@ -352,6 +356,87 @@ class _QueueSheet extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Fondo del reproductor.
+///
+/// Con carátula: la misma imagen muy desenfocada y atenuada, fundida hacia el
+/// color de fondo (el color de la canción tiñe la pantalla). Sin carátula: el
+/// degradado con el acento del diseño. Cambia con un fundido al pasar de
+/// canción.
+class _PlayerBackdrop extends StatelessWidget {
+  const _PlayerBackdrop({
+    required this.coverPath,
+    required this.tint,
+    required this.background,
+    required this.isDark,
+  });
+
+  final String? coverPath;
+  final Color tint;
+  final Color background;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final path = coverPath ?? '';
+    final hasArt = path.isNotEmpty;
+
+    final accentGradient = DecoratedBox(
+      key: const ValueKey('accent'),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          stops: const [0, 0.55],
+          colors: [tint, background],
+        ),
+      ),
+      child: const SizedBox.expand(),
+    );
+
+    final Widget layer = !hasArt
+        ? accentGradient
+        : Stack(
+            key: ValueKey(path),
+            fit: StackFit.expand,
+            children: [
+              ColoredBox(color: background),
+              Opacity(
+                opacity: isDark ? 0.55 : 0.4,
+                child: ImageFiltered(
+                  imageFilter: ImageFilter.blur(sigmaX: 48, sigmaY: 48, tileMode: TileMode.clamp),
+                  child: Image.file(
+                    File(path),
+                    fit: BoxFit.cover,
+                    cacheWidth: 160, // se desenfoca: no hace falta más resolución
+                    gaplessPlayback: true,
+                    errorBuilder: (_, _, _) => accentGradient,
+                  ),
+                ),
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: const [0.15, 0.75],
+                    colors: [background.withValues(alpha: 0), background],
+                  ),
+                ),
+              ),
+            ],
+          );
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 450),
+      layoutBuilder: (current, previous) => Stack(
+        fit: StackFit.expand,
+        children: [...previous, ?current],
+      ),
+      child: layer,
     );
   }
 }

@@ -1,258 +1,205 @@
-import 'package:flutter_riverpod/legacy.dart'; // Riverpod 3: StateProvider/StateNotifier viven aquí
 import 'package:drift/drift.dart' as drift;
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as path;
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../data/database/app_database.dart';
 import '../../data/database/daos/tracks_dao.dart';
-import '../../services/music_scanner_service.dart';
+import '../../services/cover_art_service.dart';
 import '../../services/metadata_extractor_service.dart';
+import '../../services/music_scanner_service.dart';
 import '../../services/permission_service.dart';
 import 'database_provider.dart';
 
-/// 🎵 Estado del escaneo de música
+/// Estado del escaneo de música.
+@immutable
 class MusicScannerState {
-  final List<AudioMetadata> songs;
-  final ScanProgress progress;
-  final bool hasPermission;
-  final bool isScanning;
-  final bool isSavingToDb;
-  final String? errorMessage;
-
   MusicScannerState({
-    this.songs = const [],
+    this.foundCount = 0,
     ScanProgress? progress,
     this.hasPermission = false,
     this.isScanning = false,
     this.isSavingToDb = false,
+    this.lastResult,
     this.errorMessage,
   }) : progress = progress ?? ScanProgress();
 
+  /// Canciones encontradas en el escaneo en curso (solo el número: la lista
+  /// completa no hace falta en la UI y ocupaba memoria).
+  final int foundCount;
+  final ScanProgress progress;
+  final bool hasPermission;
+  final bool isScanning;
+  final bool isSavingToDb;
+
+  /// Resumen del último guardado en la base de datos.
+  final ScanSaveResult? lastResult;
+  final String? errorMessage;
+
+  bool get isBusy => isScanning || isSavingToDb;
+
   MusicScannerState copyWith({
-    List<AudioMetadata>? songs,
+    int? foundCount,
     ScanProgress? progress,
     bool? hasPermission,
     bool? isScanning,
     bool? isSavingToDb,
+    ScanSaveResult? lastResult,
     String? errorMessage,
+    bool clearError = false,
   }) {
     return MusicScannerState(
-      songs: songs ?? this.songs,
+      foundCount: foundCount ?? this.foundCount,
       progress: progress ?? this.progress,
       hasPermission: hasPermission ?? this.hasPermission,
       isScanning: isScanning ?? this.isScanning,
       isSavingToDb: isSavingToDb ?? this.isSavingToDb,
-      errorMessage: errorMessage,
+      lastResult: lastResult ?? this.lastResult,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
 }
 
-/// 📦 Notifier para el estado del escaneo
-class MusicScannerNotifier extends StateNotifier<MusicScannerState> {
-  final TracksDao tracksDao;
+/// Resultado de guardar un escaneo: canciones nuevas, ya existentes y
+/// carátulas recuperadas para canciones que ya estaban en la biblioteca.
+@immutable
+class ScanSaveResult {
+  const ScanSaveResult({this.added = 0, this.existing = 0, this.coversRecovered = 0});
 
-  MusicScannerNotifier(this.tracksDao) : super(MusicScannerState()) {
-    _checkPermissions();
+  final int added;
+  final int existing;
+  final int coversRecovered;
+}
+
+/// Escaneo del dispositivo y guardado en la base de datos.
+final musicScannerProvider =
+    NotifierProvider<MusicScannerNotifier, MusicScannerState>(MusicScannerNotifier.new);
+
+class MusicScannerNotifier extends Notifier<MusicScannerState> {
+  TracksDao get _tracksDao => ref.read(appDatabaseProvider).tracksDao;
+
+  @override
+  MusicScannerState build() {
+    Future.microtask(_checkPermissions);
+    return MusicScannerState();
   }
 
-  /// Verifica permisos al inicializar
   Future<void> _checkPermissions() async {
-    final hasPermission = await PermissionService.hasStoragePermission();
-    state = state.copyWith(hasPermission: hasPermission);
+    final granted = await PermissionService.hasStoragePermission();
+    if (!ref.mounted) return;
+    state = state.copyWith(hasPermission: granted);
   }
 
-  /// Solicita permisos de almacenamiento
+  /// Solicita permisos de almacenamiento.
   Future<bool> requestPermissions() async {
     final granted = await PermissionService.requestStoragePermission();
-    state = state.copyWith(hasPermission: granted);
-
-    if (!granted) {
-      state = state.copyWith(
-        errorMessage: 'Se necesitan permisos de almacenamiento para escanear música',
-      );
-    }
-
+    if (!ref.mounted) return granted;
+    state = state.copyWith(
+      hasPermission: granted,
+      errorMessage: granted ? null : 'Se necesitan permisos de almacenamiento para escanear música',
+      clearError: granted,
+    );
     return granted;
   }
 
-  /// Inicia el escaneo de música
-  Future<void> startScan() async {
-    if (state.isScanning) return;
+  /// Escanea todo el almacenamiento.
+  Future<void> startScan() => _scan((scanner) => scanner.scanDevice());
 
-    // Verificar permisos
-    if (!state.hasPermission) {
-      final granted = await requestPermissions();
-      if (!granted) return;
-    }
+  /// Escanea un directorio específico.
+  Future<void> scanDirectory(String path) => _scan((scanner) => scanner.scanSpecificDirectory(path));
 
-    state = state.copyWith(
-      isScanning: true,
-      songs: [],
-      errorMessage: null,
-    );
+  Future<void> _scan(Future<List<AudioMetadata>> Function(MusicScannerService) run) async {
+    if (state.isBusy) return;
+    if (!state.hasPermission && !await requestPermissions()) return;
+
+    // Estado limpio para este escaneo (sin resultado ni error anteriores).
+    state = MusicScannerState(hasPermission: state.hasPermission, isScanning: true);
 
     final scanner = MusicScannerService(
       onProgress: (progress) {
-        state = state.copyWith(progress: progress);
+        if (ref.mounted) state = state.copyWith(progress: progress);
       },
-      onAudioFound: (metadata) {
-        // Agregar canción a la lista en tiempo real
-        final updatedSongs = [...state.songs, metadata];
-        state = state.copyWith(songs: updatedSongs);
+      onAudioFound: (_) {
+        if (ref.mounted) state = state.copyWith(foundCount: state.foundCount + 1);
       },
     );
 
     try {
-      final songs = await scanner.scanDevice();
-
+      final songs = await run(scanner);
+      if (!ref.mounted) return;
       state = state.copyWith(
-        songs: songs,
         isScanning: false,
-        progress: ScanProgress(
-          status: ScanStatus.completed,
-          totalFiles: state.progress.totalFiles,
-          scannedFiles: state.progress.scannedFiles,
-          foundAudioFiles: songs.length,
-        ),
+        foundCount: songs.length,
+        progress: state.progress.copyWith(status: ScanStatus.completed, foundAudioFiles: songs.length),
       );
-
-      // ✅ GUARDAR EN BASE DE DATOS
-      await _saveTracksToDatabase(songs);
-
+      await _saveTracks(songs);
     } catch (e) {
+      if (!ref.mounted) return;
       state = state.copyWith(
         isScanning: false,
         errorMessage: 'Error al escanear: $e',
-        progress: ScanProgress(
-          status: ScanStatus.error,
-          errorMessage: e.toString(),
-        ),
+        progress: ScanProgress(status: ScanStatus.error, errorMessage: e.toString()),
       );
     }
   }
 
-  /// ✅ NUEVO: Guardar tracks en la base de datos
-  Future<void> _saveTracksToDatabase(List<AudioMetadata> songs) async {
+  /// Inserta las canciones nuevas y, para las que ya existían, recupera la
+  /// carátula si antes no tenían (o el archivo de la carátula se borró).
+  Future<void> _saveTracks(List<AudioMetadata> songs) async {
     if (songs.isEmpty) return;
-
     state = state.copyWith(isSavingToDb: true);
 
+    var added = 0;
+    var existingCount = 0;
+    var coversRecovered = 0;
+    final now = DateTime.now();
+
     try {
-      int savedCount = 0;
-      int duplicateCount = 0;
-
-      // Crear directorio para portadas si no existe
-      final appDir = await getApplicationDocumentsDirectory();
-      final coversDir = Directory(path.join(appDir.path, 'covers'));
-      if (!await coversDir.exists()) {
-        await coversDir.create(recursive: true);
-      }
-
       for (final song in songs) {
-        // Verificar si ya existe
-        final existing = await tracksDao.getTrackByPath(song.filePath);
+        final existing = await _tracksDao.getTrackByPath(song.filePath);
 
         if (existing == null) {
-          // Guardar portada si existe
-          String? coverPath;
-          if (song.coverArtBytes != null && song.coverArtBytes!.isNotEmpty) {
-            try {
-              final trackId = DateTime.now().millisecondsSinceEpoch;
-              final coverFile = File(path.join(coversDir.path, 'cover_$trackId.jpg'));
-              await coverFile.writeAsBytes(song.coverArtBytes!);
-              coverPath = coverFile.path;
-              print('🖼️ Portada guardada: $coverPath');
-            } catch (e) {
-              print('❌ Error guardando portada: $e');
-            }
-          }
-
-          // Insertar nuevo track
-          final companion = TracksTableCompanion.insert(
+          await _tracksDao.insertTrack(TracksTableCompanion.insert(
             filePath: song.filePath,
             title: song.title,
             artist: song.artist,
             album: song.album,
             genre: song.genre ?? 'Desconocido',
-            durationMs: song.duration != null ? song.duration! * 1000 : 0,
-            addedAt: DateTime.now(),
-            coverArtPath: drift.Value(coverPath),
-          );
+            durationMs: (song.duration ?? 0) * 1000,
+            addedAt: now,
+            coverArtPath: drift.Value(song.coverArtPath),
+          ));
+          added++;
+          continue;
+        }
 
-          await tracksDao.insertTrack(companion);
-          savedCount++;
-        } else {
-          duplicateCount++;
+        existingCount++;
+        final newCover = song.coverArtPath;
+        if (newCover != null &&
+            newCover != existing.coverArtPath &&
+            !CoverArtService.existsSync(existing.coverArtPath)) {
+          await _tracksDao.updateCoverArt(existing.id, newCover);
+          coversRecovered++;
         }
       }
-
-      print('✅ Guardados: $savedCount tracks');
-      print('⚠️ Duplicados omitidos: $duplicateCount tracks');
-
-    } catch (e) {
-      print('❌ Error guardando tracks: $e');
+      debugPrint('Escaneo guardado: $added nuevas, $existingCount existentes, '
+          '$coversRecovered carátulas recuperadas');
+      if (!ref.mounted) return;
       state = state.copyWith(
-        errorMessage: 'Error guardando canciones: $e',
+        lastResult: ScanSaveResult(added: added, existing: existingCount, coversRecovered: coversRecovered),
       );
+    } catch (e) {
+      debugPrint('Error guardando tracks: $e');
+      if (ref.mounted) state = state.copyWith(errorMessage: 'Error guardando canciones: $e');
     } finally {
-      state = state.copyWith(isSavingToDb: false);
+      if (ref.mounted) state = state.copyWith(isSavingToDb: false);
     }
   }
 
-  /// Escanea un directorio específico
-  Future<void> scanDirectory(String path) async {
-    if (state.isScanning) return;
-
-    state = state.copyWith(
-      isScanning: true,
-      errorMessage: null,
-    );
-
-    final scanner = MusicScannerService(
-      onProgress: (progress) {
-        state = state.copyWith(progress: progress);
-      },
-      onAudioFound: (metadata) {
-        final updatedSongs = [...state.songs, metadata];
-        state = state.copyWith(songs: updatedSongs);
-      },
-    );
-
-    try {
-      final songs = await scanner.scanSpecificDirectory(path);
-
-      state = state.copyWith(
-        songs: [...state.songs, ...songs],
-        isScanning: false,
-      );
-
-      // Guardar en DB
-      await _saveTracksToDatabase(songs);
-    } catch (e) {
-      state = state.copyWith(
-        isScanning: false,
-        errorMessage: 'Error al escanear directorio: $e',
-      );
-    }
+  /// Vuelve al estado inicial (conserva el permiso).
+  void reset() {
+    state = MusicScannerState(hasPermission: state.hasPermission);
   }
 
-  /// Limpia la lista de canciones
-  void clearSongs() {
-    state = state.copyWith(
-      songs: [],
-      progress: ScanProgress(),
-    );
-  }
-
-  /// Abre configuración de la app
-  Future<void> openSettings() async {
-    await PermissionService.openSettings();
-  }
+  /// Abre los ajustes del sistema para conceder el permiso.
+  Future<void> openSettings() => PermissionService.openSettings();
 }
-
-final musicScannerProvider = StateNotifierProvider<MusicScannerNotifier, MusicScannerState>(
-  (ref) {
-    final database = ref.watch(appDatabaseProvider);
-    return MusicScannerNotifier(database.tracksDao);
-  },
-);

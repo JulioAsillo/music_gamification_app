@@ -1,5 +1,9 @@
 import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+
+import 'cover_art_service.dart';
 import 'metadata_extractor_service.dart';
 
 /// 📂 Estado del escaneo
@@ -64,6 +68,9 @@ class MusicScannerService {
     this.onProgress,
     this.onAudioFound,
   });
+
+  /// Directorio donde se guardan las carátulas extraídas.
+  String? _coversDir;
 
   /// Escanea el dispositivo en busca de archivos de audio
   Future<List<AudioMetadata>> scanDevice() async {
@@ -150,16 +157,16 @@ class MusicScannerService {
         // Queremos: /storage/emulated/0/
         final storagePath = externalStorage.path.split('Android')[0];
 
-        print('📂 Escaneando TODO el almacenamiento desde: $storagePath');
+        debugPrint('📂 Escaneando TODO el almacenamiento desde: $storagePath');
 
         // Escanear TODO el almacenamiento
         final rootDirectory = Directory(storagePath);
 
         if (await rootDirectory.exists()) {
           directories.add(rootDirectory);
-          print('✅ Se escaneará todo el dispositivo');
+          debugPrint('✅ Se escaneará todo el dispositivo');
         } else {
-          print('❌ No se puede acceder a la raíz del almacenamiento');
+          debugPrint('❌ No se puede acceder a la raíz del almacenamiento');
 
           // Fallback: escanear directorios comunes
           final possibleDirs = [
@@ -175,7 +182,7 @@ class MusicScannerService {
           for (final dir in possibleDirs) {
             if (await dir.exists()) {
               directories.add(dir);
-              print('📁 Directorio agregado: ${dir.path}');
+              debugPrint('📁 Directorio agregado: ${dir.path}');
             }
           }
         }
@@ -185,7 +192,7 @@ class MusicScannerService {
       directories.add(appDir);
     }
 
-    print('📊 Total de directorios a escanear: ${directories.length}');
+    debugPrint('📊 Total de directorios a escanear: ${directories.length}');
     return directories;
   }
 
@@ -220,7 +227,8 @@ class MusicScannerService {
 
           // Verificar si es un archivo de audio soportado
           if (MetadataExtractorService.isSupportedAudioFile(filePath)) {
-            final metadata = await MetadataExtractorService.extractMetadata(filePath);
+            _coversDir ??= await CoverArtService.directoryPath();
+            final metadata = await MetadataExtractorService.extractMetadata(filePath, coversDir: _coversDir);
             
             if (metadata != null) {
               audioFiles.add(metadata);
@@ -243,7 +251,7 @@ class MusicScannerService {
         }
       }
     } catch (e) {
-      print('⚠️ No se pudo acceder a: ${directory.path}');
+      debugPrint('⚠️ No se pudo acceder a: ${directory.path}');
     }
 
     return audioFiles;

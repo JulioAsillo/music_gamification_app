@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';  // ✅ IMPORTANTE: Importar este
@@ -72,7 +73,7 @@ class AppDatabase extends _$AppDatabase {
         if (from < 2) {
           await m.createTable(playlistsTable);
           await m.createTable(playlistTracksTable);
-          print('✅ Tablas de playlists creadas');
+          debugPrint('✅ Tablas de playlists creadas');
         }
       },
     );

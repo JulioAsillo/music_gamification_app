@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../core/constants/app_constants.dart';
@@ -12,17 +13,17 @@ class MusicAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
   List<Track> _currentQueue = [];
 
   MusicAudioHandler() {
-    print('🎧 Inicializando MusicAudioHandler...');
+    debugPrint('🎧 Inicializando MusicAudioHandler...');
     _init();
   }
 
   Future<void> _init() async {
     try {
-      print('🎧 Configurando AudioPlayer...');
+      debugPrint('🎧 Configurando AudioPlayer...');
 
       // Sincronizar estado del player con el sistema
       _player.playbackEventStream.listen(_broadcastState);
-      print('✅ PlaybackEventStream conectado');
+      debugPrint('✅ PlaybackEventStream conectado');
 
       // Sincronizar cambios de track
       _player.sequenceStateStream.listen((state) {
@@ -30,17 +31,17 @@ class MusicAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
           final currentIndex = state.currentIndex;
           if (currentIndex != null && currentIndex < _currentQueue.length) {
             final track = _currentQueue[currentIndex];
-            print('🎵 Track actual: ${track.title}');
+            debugPrint('🎵 Track actual: ${track.title}');
             mediaItem.add(_trackToMediaItem(track));
           }
         }
       });
-      print('✅ SequenceStateStream conectado');
+      debugPrint('✅ SequenceStateStream conectado');
 
-      print('✅ MusicAudioHandler inicializado correctamente');
+      debugPrint('✅ MusicAudioHandler inicializado correctamente');
     } catch (e, stackTrace) {
-      print('❌ Error inicializando MusicAudioHandler: $e');
-      print('Stack trace: $stackTrace');
+      debugPrint('❌ Error inicializando MusicAudioHandler: $e');
+      debugPrint('Stack trace: $stackTrace');
     }
   }
 
@@ -61,11 +62,11 @@ class MusicAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
   /// Reproducir una lista de tracks
   Future<void> playTracks(List<Track> tracks, {int initialIndex = 0}) async {
     if (tracks.isEmpty) {
-      print('⚠️ playTracks: Lista de tracks vacía');
+      debugPrint('⚠️ playTracks: Lista de tracks vacía');
       return;
     }
 
-    print('🎵 playTracks: Iniciando con ${tracks.length} tracks, index: $initialIndex');
+    debugPrint('🎵 playTracks: Iniciando con ${tracks.length} tracks, index: $initialIndex');
     _currentQueue = tracks;
 
     try {
@@ -73,7 +74,7 @@ class MusicAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
       final initialTrack = tracks[initialIndex];
       final initialFile = File(initialTrack.filePath);
       if (!initialFile.existsSync()) {
-        print('❌ ERROR: El archivo del track inicial no existe: ${initialTrack.filePath}');
+        debugPrint('❌ ERROR: El archivo del track inicial no existe: ${initialTrack.filePath}');
         throw Exception('El archivo de audio no existe: ${initialTrack.title}');
       }
 
@@ -85,12 +86,12 @@ class MusicAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
         final file = File(track.filePath);
         final exists = file.existsSync();
 
-        print('📁 [$i] ${track.title}');
-        print('   Path: ${track.filePath}');
-        print('   Existe: $exists');
+        debugPrint('📁 [$i] ${track.title}');
+        debugPrint('   Path: ${track.filePath}');
+        debugPrint('   Existe: $exists');
 
         if (!exists) {
-          print('   ⚠️ Archivo no encontrado, omitiendo...');
+          debugPrint('   ⚠️ Archivo no encontrado, omitiendo...');
           continue;
         }
 
@@ -102,19 +103,19 @@ class MusicAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
           audioSources.add(source);
           validIndices.add(i);
         } catch (e) {
-          print('   ❌ Error creando AudioSource: $e');
+          debugPrint('   ❌ Error creando AudioSource: $e');
         }
       }
 
       if (audioSources.isEmpty) {
-        print('❌ No hay fuentes de audio válidas para reproducir');
+        debugPrint('❌ No hay fuentes de audio válidas para reproducir');
         throw Exception('No se encontraron archivos de audio válidos');
       }
 
       // Calcular el nuevo índice basado en los tracks válidos
       final newInitialIndex = validIndices.indexOf(initialIndex);
       if (newInitialIndex == -1) {
-        print('⚠️ El track inicial no está en los válidos, usando índice 0');
+        debugPrint('⚠️ El track inicial no está en los válidos, usando índice 0');
       }
       final finalIndex = newInitialIndex != -1 ? newInitialIndex : 0;
 
@@ -124,21 +125,21 @@ class MusicAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
       _currentQueue = validTracks;
 
       // Usar la nueva API de just_audio
-      print('🎯 Configurando ${audioSources.length} audio sources, índice: $finalIndex');
+      debugPrint('🎯 Configurando ${audioSources.length} audio sources, índice: $finalIndex');
       await _player.setAudioSource(
         ConcatenatingAudioSource(children: audioSources),
         initialIndex: finalIndex,
         initialPosition: Duration.zero,
       );
 
-      print('🎯 Iniciando reproducción...');
+      debugPrint('🎯 Iniciando reproducción...');
       // No se hace await: el Future de play() de just_audio solo termina al
       // pausar o al acabar la canción, y bloquearía el flujo de estado.
       unawaited(_player.play());
-      print('✅ Reproducción iniciada');
+      debugPrint('✅ Reproducción iniciada');
     } catch (e, stackTrace) {
-      print('❌ Error en playTracks: $e');
-      print('Stack trace: $stackTrace');
+      debugPrint('❌ Error en playTracks: $e');
+      debugPrint('Stack trace: $stackTrace');
       rethrow;
     }
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/constants/app_info.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'domain/services/audio_player_service.dart';
@@ -33,7 +34,7 @@ class MyApp extends ConsumerWidget {
     final accent = ref.watch(accentColorProvider);
 
     return MaterialApp.router(
-      title: 'MusiQuest',
+      title: AppInfo.name,
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
       theme: AppTheme.light(accent),

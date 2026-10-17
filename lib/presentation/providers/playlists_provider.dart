@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart'; // Riverpod 3: StateProvider/StateNotifier viven aquí
 import '../../data/models/playlist.dart';
@@ -42,7 +43,7 @@ class PlaylistsNotifier extends StateNotifier<List<Playlist>> {
       final playlists = await _repository.getAllPlaylists();
       state = playlists;
     } catch (e, st) {
-      print('❌ Error cargando playlists: $e');
+      debugPrint('❌ Error cargando playlists: $e');
       state = [];
     }
   }
@@ -62,7 +63,7 @@ class PlaylistsNotifier extends StateNotifier<List<Playlist>> {
       await _loadPlaylists();
       return id;
     } catch (e) {
-      print('❌ Error creando playlist: $e');
+      debugPrint('❌ Error creando playlist: $e');
       return null;
     }
   }
@@ -88,7 +89,7 @@ class PlaylistsNotifier extends StateNotifier<List<Playlist>> {
       }
       return result;
     } catch (e) {
-      print('❌ Error actualizando playlist: $e');
+      debugPrint('❌ Error actualizando playlist: $e');
       return false;
     }
   }
@@ -102,7 +103,7 @@ class PlaylistsNotifier extends StateNotifier<List<Playlist>> {
       }
       return result;
     } catch (e) {
-      print('❌ Error eliminando playlist: $e');
+      debugPrint('❌ Error eliminando playlist: $e');
       return false;
     }
   }
@@ -118,7 +119,7 @@ class PlaylistsNotifier extends StateNotifier<List<Playlist>> {
         trackId: trackId,
       );
     } catch (e) {
-      print('❌ Error agregando track a playlist: $e');
+      debugPrint('❌ Error agregando track a playlist: $e');
       return false;
     }
   }
@@ -134,7 +135,7 @@ class PlaylistsNotifier extends StateNotifier<List<Playlist>> {
         trackId: trackId,
       );
     } catch (e) {
-      print('❌ Error eliminando track de playlist: $e');
+      debugPrint('❌ Error eliminando track de playlist: $e');
       return false;
     }
   }
@@ -145,7 +146,7 @@ class PlaylistsNotifier extends StateNotifier<List<Playlist>> {
       await _repository.toggleFavorite(playlistId);
       await _loadPlaylists();
     } catch (e) {
-      print('❌ Error toggling favorito: $e');
+      debugPrint('❌ Error toggling favorito: $e');
     }
   }
 }

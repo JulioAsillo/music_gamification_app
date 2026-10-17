@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart'; // Riverpod 3: StateProvider/StateNotifier viven aquí
@@ -165,17 +166,17 @@ class MusicPlayerNotifier extends StateNotifier<PlayerState> {
   /// Reproducir una lista de tracks
   Future<void> playTracks(List<Track> tracks, {int initialIndex = 0}) async {
     if (tracks.isEmpty) {
-      print('⚠️ MusicPlayerNotifier.playTracks: Lista vacía');
+      debugPrint('⚠️ MusicPlayerNotifier.playTracks: Lista vacía');
       return;
     }
 
-    print('🎵 MusicPlayerNotifier.playTracks: Iniciando reproducción de ${tracks[initialIndex].title}');
-    print('   Total de tracks: ${tracks.length}, índice inicial: $initialIndex');
-    print('   Path del archivo: ${tracks[initialIndex].filePath}');
+    debugPrint('🎵 MusicPlayerNotifier.playTracks: Iniciando reproducción de ${tracks[initialIndex].title}');
+    debugPrint('   Total de tracks: ${tracks.length}, índice inicial: $initialIndex');
+    debugPrint('   Path del archivo: ${tracks[initialIndex].filePath}');
     state = state.copyWith(isLoading: true);
 
     try {
-      print('🔄 Llamando a _audioService.playTracks...');
+      debugPrint('🔄 Llamando a _audioService.playTracks...');
       await _audioService.playTracks(tracks, initialIndex: initialIndex);
 
       // Esperar un momento para que el estado se actualice
@@ -192,9 +193,9 @@ class MusicPlayerNotifier extends StateNotifier<PlayerState> {
       // Nueva reproducción explícita: cuenta de nuevo aunque sea la misma canción
       _switchTrack(tracks[initialIndex]);
 
-      print('✅ Estado actualizado - Reproduciendo: ${tracks[initialIndex].title}');
+      debugPrint('✅ Estado actualizado - Reproduciendo: ${tracks[initialIndex].title}');
     } catch (e) {
-      print('❌ Error en playTracks: $e');
+      debugPrint('❌ Error en playTracks: $e');
       state = state.copyWith(isLoading: false);
     }
   }
@@ -322,7 +323,7 @@ class MusicPlayerNotifier extends StateNotifier<PlayerState> {
     if (start != null && track != null) {
       try {
         _ref.read(gamificationServiceProvider).recordListening(track, start, now).catchError((Object e) {
-          print('❌ Error guardando escucha: $e');
+          debugPrint('❌ Error guardando escucha: $e');
         });
       } catch (_) {
         // El provider ya se destruyó (cierre de la app): no hay dónde guardar.
@@ -357,7 +358,7 @@ class MusicPlayerNotifier extends StateNotifier<PlayerState> {
       await database.tracksDao.incrementPlayCount(track.id!);
       await _ref.read(gamificationServiceProvider).recordCountedPlay(track);
     } catch (e) {
-      print('❌ Error registrando reproducción: $e');
+      debugPrint('❌ Error registrando reproducción: $e');
     }
   }
 

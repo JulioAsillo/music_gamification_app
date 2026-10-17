@@ -31,7 +31,7 @@ class ScanSheet extends ConsumerWidget {
     final status = s.progress.status;
     final isDone = status == ScanStatus.completed && !s.isScanning && !s.isSavingToDb;
     final isError = status == ScanStatus.error || (s.errorMessage != null && !s.isScanning);
-    final isBusy = s.isScanning || s.isSavingToDb;
+    final isBusy = s.isBusy;
 
     final IconData icon;
     final Color iconColor;
@@ -42,7 +42,7 @@ class ScanSheet extends ConsumerWidget {
       icon = Icons.graphic_eq_rounded;
       iconColor = p.accent;
       title = s.isSavingToDb ? 'Guardando en tu biblioteca…' : 'Escaneando…';
-      final found = s.songs.length;
+      final found = s.foundCount;
       body = '$found ${found == 1 ? 'canción encontrada' : 'canciones encontradas'}';
     } else if (isError) {
       icon = Icons.error_outline_rounded;
@@ -54,7 +54,13 @@ class ScanSheet extends ConsumerWidget {
       iconColor = AppPalette.success;
       final found = s.progress.foundAudioFiles;
       title = '$found ${found == 1 ? 'canción encontrada' : 'canciones encontradas'}';
-      body = 'Tu biblioteca está actualizada. Las canciones nuevas ya aparecen en Biblioteca.';
+      final r = s.lastResult;
+      body = [
+        'Tu biblioteca está actualizada.',
+        if (r != null && r.added > 0) '${r.added} ${r.added == 1 ? 'canción nueva' : 'canciones nuevas'}.',
+        if (r != null && r.coversRecovered > 0)
+          '${r.coversRecovered} ${r.coversRecovered == 1 ? 'carátula recuperada' : 'carátulas recuperadas'}.',
+      ].join(' ');
     } else {
       icon = Icons.folder_outlined;
       iconColor = p.accent;
@@ -112,7 +118,7 @@ class ScanSheet extends ConsumerWidget {
               child: isDone
                   ? FilledButton(
                       onPressed: () {
-                        notifier.clearSongs();
+                        notifier.reset();
                         Navigator.of(context).pop();
                       },
                       child: const Text('Listo'),

@@ -4,9 +4,11 @@ import 'dart:io';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/utils/duration_formatter.dart';
+import '../../../data/models/track.dart';
 import '../../providers/playlists_provider.dart';
 import '../../providers/music_player_provider.dart';
 import '../../providers/tracks_provider.dart';
+import '../../widgets/ui/track_cover.dart';
 import 'edit_playlist_dialog.dart';
 
 /// Pantalla de detalle de una playlist
@@ -230,7 +232,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTracksList(BuildContext context, WidgetRef ref, tracks, playlist) {
+  Widget _buildTracksList(BuildContext context, WidgetRef ref, List<Track> tracks, playlist) {
     final currentTrack = ref.watch(currentTrackProvider);
 
     return SliverList(
@@ -288,28 +290,21 @@ class PlaylistDetailScreen extends ConsumerWidget {
           final isPlaying = currentTrack?.id == track.id;
 
           return ListTile(
-            leading: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: isPlaying
-                    ? Icon(Icons.graphic_eq, color: AppColors.primary)
-                    : (track.coverArtPath != null &&
-                            File(track.coverArtPath!).existsSync()
-                        ? Image.file(
-                            File(track.coverArtPath!),
-                            fit: BoxFit.cover,
-                          )
-                        : Icon(
-                            Icons.music_note,
-                            color: AppColors.primary.withValues(alpha: 0.6),
-                          )),
-              ),
+            leading: Stack(
+              alignment: Alignment.center,
+              children: [
+                TrackCover.track(track, size: 48, radius: 8),
+                if (isPlaying)
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.graphic_eq, color: Colors.white),
+                  ),
+              ],
             ),
             title: Text(
               track.title,
@@ -442,28 +437,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
                               final isAdded = currentTrackIds.contains(track.id);
 
                               return ListTile(
-                                leading: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: track.coverArtPath != null && File(track.coverArtPath!).existsSync()
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(6),
-                                          child: Image.file(
-                                            File(track.coverArtPath!),
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) {
-                                              return Icon(Icons.music_note,
-                                                  color: AppColors.primary.withValues(alpha: 0.6));
-                                            },
-                                          ),
-                                        )
-                                      : Icon(Icons.music_note,
-                                          color: AppColors.primary.withValues(alpha: 0.6)),
-                                ),
+                                leading: TrackCover.track(track, size: 40, radius: 6),
                                 title: Text(
                                   track.title,
                                   maxLines: 1,

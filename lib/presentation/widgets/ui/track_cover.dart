@@ -7,10 +7,14 @@ import '../../../data/models/track.dart';
 
 /// Portada de canción.
 ///
-/// Si hay carátula ([imagePath], archivo guardado al escanear) la muestra;
-/// si no, pinta uno de los gradientes del diseño elegido de forma estable a
-/// partir de [seed] (el id del track), así la misma canción siempre tiene
-/// el mismo color.
+/// Si la canción trae carátula ([imagePath], extraída del archivo al
+/// escanear) la muestra con un fundido suave; mientras carga, o si no hay
+/// imagen, pinta uno de los gradientes del diseño elegido de forma estable a
+/// partir de [seed] (el id del track): la misma canción siempre tiene el
+/// mismo color.
+///
+/// Las portadas grandes (≥ 96 px o a todo el ancho) llevan una sombra suave
+/// para que la carátula "flote" sobre el fondo.
 class TrackCover extends StatelessWidget {
   const TrackCover({
     super.key,
@@ -19,6 +23,7 @@ class TrackCover extends StatelessWidget {
     this.radius,
     this.imagePath,
     this.showIcon = false,
+    this.elevated,
   });
 
   /// Atajo para construir la portada de un [Track].
@@ -28,6 +33,7 @@ class TrackCover extends StatelessWidget {
     double size = 44,
     double? radius,
     bool showIcon = false,
+    bool? elevated,
   }) {
     return TrackCover(
       key: key,
@@ -36,6 +42,7 @@ class TrackCover extends StatelessWidget {
       radius: radius,
       imagePath: track.coverArtPath,
       showIcon: showIcon,
+      elevated: elevated,
     );
   }
 
@@ -48,8 +55,14 @@ class TrackCover extends StatelessWidget {
   final double? radius;
   final String? imagePath;
 
-  /// Muestra la nota musical blanca centrada (portadas grandes del diseño).
+  /// Muestra la nota musical blanca centrada cuando no hay carátula
+  /// (portadas grandes del diseño).
   final bool showIcon;
+
+  /// Sombra bajo la portada. Por defecto, solo en portadas grandes.
+  final bool? elevated;
+
+  bool get hasArt => imagePath != null && imagePath!.isNotEmpty;
 
   static LinearGradient gradientFor(int seed) {
     final colors = AppPalette.coverGradients[seed.abs() % AppPalette.coverGradients.length];
@@ -62,34 +75,78 @@ class TrackCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLarge = !size.isFinite || size >= 96;
     final r = radius ?? (size <= 48 ? 10.0 : size <= 128 ? 16.0 : 28.0);
-    final path = imagePath;
-    final hasArt = path != null && path.isNotEmpty;
+    final shadow = (elevated ?? isLarge)
+        ? [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.28),
+              blurRadius: isLarge ? 24 : 10,
+              offset: Offset(0, isLarge ? 10 : 4),
+            ),
+          ]
+        : null;
 
-    Widget gradient(double iconBase) => _GradientCover(seed: seed, iconBase: iconBase, showIcon: showIcon);
+    Widget square(double side) {
+      final placeholder = _GradientCover(seed: seed, iconBase: side, showIcon: showIcon);
+      final content = hasArt
+          ? _CoverImage(
+              path: imagePath!,
+              cacheSide: side.isFinite ? (side * MediaQuery.devicePixelRatioOf(context)).round() : 1024,
+              placeholder: placeholder,
+            )
+          : placeholder;
 
-    Widget content(double side) => hasArt
-        ? Image.file(
-            File(path!),
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-            cacheWidth: side.isFinite ? (side * MediaQuery.devicePixelRatioOf(context)).round() : null,
-            errorBuilder: (_, _, _) => gradient(side),
-          )
-        : gradient(side);
-
-    if (!size.isFinite) {
-      return LayoutBuilder(
-        builder: (context, c) => ClipRRect(
-          borderRadius: BorderRadius.circular(r),
-          child: AspectRatio(aspectRatio: 1, child: content(c.maxWidth)),
-        ),
+      return DecoratedBox(
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(r), boxShadow: shadow),
+        child: ClipRRect(borderRadius: BorderRadius.circular(r), child: content),
       );
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(r),
-      child: SizedBox.square(dimension: size, child: content(size)),
+    if (!size.isFinite) {
+      return LayoutBuilder(
+        builder: (context, c) => AspectRatio(aspectRatio: 1, child: square(c.maxWidth)),
+      );
+    }
+    return SizedBox.square(dimension: size, child: square(size));
+  }
+}
+
+/// Carátula desde archivo con fundido de entrada. Si el archivo no existe o
+/// no se puede decodificar, queda el [placeholder] (gradiente).
+class _CoverImage extends StatelessWidget {
+  const _CoverImage({required this.path, required this.cacheSide, required this.placeholder});
+
+  final String path;
+  final int cacheSide;
+  final Widget placeholder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.file(
+      File(path),
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      gaplessPlayback: true,
+      cacheWidth: cacheSide,
+      filterQuality: FilterQuality.medium,
+      errorBuilder: (_, _, _) => placeholder,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded) return child;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            placeholder,
+            AnimatedOpacity(
+              opacity: frame == null ? 0 : 1,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+              child: child,
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -109,7 +166,7 @@ class _GradientCover extends StatelessWidget {
           ? Center(
               child: Icon(
                 Icons.music_note_rounded,
-                color: Colors.white,
+                color: Colors.white.withValues(alpha: 0.9),
                 size: (iconBase.isFinite ? iconBase : 240) * 0.32,
               ),
             )

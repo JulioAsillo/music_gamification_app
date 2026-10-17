@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
@@ -27,7 +28,7 @@ class AudioPlayerService {
   Future<void> initialize() async {
     // Si ya está inicializado o en proceso de inicialización, no hacer nada
     if (_isInitialized || _isInitializing) {
-      print('⚠️ AudioService ya está ${_isInitialized ? "inicializado" : "inicializando"}');
+      debugPrint('⚠️ AudioService ya está ${_isInitialized ? "inicializado" : "inicializando"}');
       return;
     }
 
@@ -54,10 +55,10 @@ class AudioPlayerService {
 
       _isInitialized = true;
       _useFallback = false;
-      print('✅ AudioPlayerService inicializado con audio_service');
+      debugPrint('✅ AudioPlayerService inicializado con audio_service');
     } catch (e) {
-      print('❌ Error inicializando AudioPlayerService: $e');
-      print('🔄 Usando reproductor de respaldo sin notificaciones');
+      debugPrint('❌ Error inicializando AudioPlayerService: $e');
+      debugPrint('🔄 Usando reproductor de respaldo sin notificaciones');
       // Si el handler llegó a crearse, libera su reproductor: dos AudioPlayer
       // vivos generan estados contradictorios entre el botón y el sonido.
       await _createdHandler?.customAction('dispose');
@@ -76,21 +77,21 @@ class AudioPlayerService {
 
   // Delegación de métodos al handler o fallback
   Future<void> playTracks(List<Track> tracks, {int initialIndex = 0}) async {
-    print('🔊 AudioPlayerService.playTracks: ${_useFallback ? "Usando fallback" : "Delegando a handler"}');
+    debugPrint('🔊 AudioPlayerService.playTracks: ${_useFallback ? "Usando fallback" : "Delegando a handler"}');
 
     if (_useFallback && _fallbackPlayer != null) {
       await _playTracksFallback(tracks, initialIndex: initialIndex);
     } else if (_audioHandler != null) {
       await handler!.playTracks(tracks, initialIndex: initialIndex);
     } else {
-      print('❌ No hay reproductor disponible');
+      debugPrint('❌ No hay reproductor disponible');
     }
   }
 
   Future<void> _playTracksFallback(List<Track> tracks, {int initialIndex = 0}) async {
     if (tracks.isEmpty || _fallbackPlayer == null) return;
 
-    print('🎵 Fallback: Reproduciendo ${tracks[initialIndex].title}');
+    debugPrint('🎵 Fallback: Reproduciendo ${tracks[initialIndex].title}');
     _fallbackQueue = tracks;
     _fallbackIndex = initialIndex;
 
@@ -109,19 +110,19 @@ class AudioPlayerService {
       );
 
       unawaited(_fallbackPlayer!.play()); // no bloquear: ver audio_handler_service
-      print('✅ Fallback: Reproducción iniciada');
+      debugPrint('✅ Fallback: Reproducción iniciada');
     } catch (e) {
-      print('❌ Error en fallback: $e');
+      debugPrint('❌ Error en fallback: $e');
     }
   }
 
   Future<void> playTrack(Track track) async {
-    print('🔊 AudioPlayerService.playTrack: ${track.title}');
+    debugPrint('🔊 AudioPlayerService.playTrack: ${track.title}');
     await playTracks([track]);
   }
 
   Future<void> play() async {
-    print('▶️ AudioPlayerService.play()');
+    debugPrint('▶️ AudioPlayerService.play()');
     if (_useFallback && _fallbackPlayer != null) {
       unawaited(_fallbackPlayer!.play());
     } else if (_audioHandler != null) {
@@ -130,7 +131,7 @@ class AudioPlayerService {
   }
 
   Future<void> pause() async {
-    print('⏸️ AudioPlayerService.pause()');
+    debugPrint('⏸️ AudioPlayerService.pause()');
     if (_useFallback && _fallbackPlayer != null) {
       await _fallbackPlayer!.pause();
     } else if (_audioHandler != null) {
@@ -222,7 +223,7 @@ class AudioPlayerService {
   }
 
   Future<void> addToQueue(Track track) async {
-    print('⚠️ addToQueue no implementado aún');
+    debugPrint('⚠️ addToQueue no implementado aún');
   }
 
   // Getters

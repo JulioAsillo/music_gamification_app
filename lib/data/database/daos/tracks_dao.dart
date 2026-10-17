@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:drift/drift.dart';
 import '../app_database.dart';
 import '../tables/tracks_table.dart';
@@ -89,6 +90,13 @@ class TracksDao extends DatabaseAccessor<AppDatabase> with _$TracksDaoMixin {
   /// Actualizar un track
   Future<bool> updateTrack(TracksTableData track) {
     return update(tracksTable).replace(track);
+  }
+
+  /// Actualiza solo la carátula de un track.
+  Future<void> updateCoverArt(int trackId, String? coverArtPath) {
+    return (update(tracksTable)..where((t) => t.id.equals(trackId))).write(
+      TracksTableCompanion(coverArtPath: Value(coverArtPath)),
+    );
   }
 
   /// Incrementar play count
@@ -190,7 +198,7 @@ class TracksDao extends DatabaseAccessor<AppDatabase> with _$TracksDaoMixin {
     final existing = await getTrackByPath(path);
 
     if (existing != null) {
-      print('⚠️ Track ya existe: ${existing.title}');
+      debugPrint('⚠️ Track ya existe: ${existing.title}');
       return existing.id;
     }
 
