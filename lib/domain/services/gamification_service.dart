@@ -90,6 +90,20 @@ class GamificationService {
         );
       }
     });
+
+    // Los logros existentes conservan progreso y estado, pero sus datos de
+    // definición (título, meta, recompensa…) se actualizan si cambiaron.
+    for (final d in _defs) {
+      await (_db.update(_db.achievementsTable)..where((a) => a.id.equals(d.id))).write(
+        AchievementsTableCompanion(
+          title: Value(d.title),
+          description: Value(d.description),
+          type: Value(d.type.name),
+          targetProgress: Value(d.target),
+          xpReward: Value(d.xp),
+        ),
+      );
+    }
   }
 
   /// Actualiza el progreso de un logro; si se completa lo desbloquea

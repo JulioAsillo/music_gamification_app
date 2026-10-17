@@ -145,29 +145,10 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   Future<void> _editName(BuildContext context, WidgetRef ref, String current) async {
-    final controller = TextEditingController(text: current);
     final result = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Tu nombre'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLength: 30,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(hintText: 'Cómo quieres que te llamemos'),
-          onSubmitted: (v) => Navigator.of(dialogContext).pop(v),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Cancelar')),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
+      builder: (_) => _NameDialog(initial: current),
     );
-    controller.dispose();
     if (result != null) ref.read(displayNameProvider.notifier).set(result);
   }
 
@@ -210,6 +191,50 @@ class ProfileScreen extends ConsumerWidget {
     if (!context.mounted) return;
     final mb = (freed / (1024 * 1024)).toStringAsFixed(1);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Caché liberada ($mb MB)')));
+  }
+}
+
+/// Diálogo para editar el nombre. Es dueño de su [TextEditingController]:
+/// se libera cuando el diálogo se desmonta, no antes (la animación de salida
+/// todavía usa el TextField).
+class _NameDialog extends StatefulWidget {
+  const _NameDialog({required this.initial});
+
+  final String initial;
+
+  @override
+  State<_NameDialog> createState() => _NameDialogState();
+}
+
+class _NameDialogState extends State<_NameDialog> {
+  late final TextEditingController _controller = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Tu nombre'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        maxLength: 30,
+        textCapitalization: TextCapitalization.words,
+        decoration: const InputDecoration(hintText: 'Cómo quieres que te llamemos'),
+        onSubmitted: (v) => Navigator.of(context).pop(v),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+          child: const Text('Guardar'),
+        ),
+      ],
+    );
   }
 }
 
