@@ -27,13 +27,11 @@ class MusicAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
 
       // Sincronizar cambios de track
       _player.sequenceStateStream.listen((state) {
-        if (state != null) {
-          final currentIndex = state.currentIndex;
-          if (currentIndex != null && currentIndex < _currentQueue.length) {
-            final track = _currentQueue[currentIndex];
-            debugPrint('🎵 Track actual: ${track.title}');
-            mediaItem.add(_trackToMediaItem(track));
-          }
+        final currentIndex = state.currentIndex;
+        if (currentIndex != null && currentIndex < _currentQueue.length) {
+          final track = _currentQueue[currentIndex];
+          debugPrint('🎵 Track actual: ${track.title}');
+          mediaItem.add(_trackToMediaItem(track));
         }
       });
       debugPrint('✅ SequenceStateStream conectado');
@@ -126,8 +124,8 @@ class MusicAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
 
       // Usar la nueva API de just_audio
       debugPrint('🎯 Configurando ${audioSources.length} audio sources, índice: $finalIndex');
-      await _player.setAudioSource(
-        ConcatenatingAudioSource(children: audioSources),
+      await _player.setAudioSources(
+        audioSources,
         initialIndex: finalIndex,
         initialPosition: Duration.zero,
       );

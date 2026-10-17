@@ -10,7 +10,7 @@ part 'playlists_dao.g.dart';
 /// DAO para gestionar playlists
 @DriftAccessor(tables: [PlaylistsTable, PlaylistTracksTable, TracksTable])
 class PlaylistsDao extends DatabaseAccessor<AppDatabase> with _$PlaylistsDaoMixin {
-  PlaylistsDao(AppDatabase db) : super(db);
+  PlaylistsDao(super.db);
 
   /// Obtener todas las playlists
   Future<List<Playlist>> getAllPlaylists() async {
@@ -306,22 +306,6 @@ class PlaylistsDao extends DatabaseAccessor<AppDatabase> with _$PlaylistsDaoMixi
 
     final result = await countQuery.getSingle();
     return result.read(playlistTracksTable.id.count()) ?? 0;
-  }
-
-  /// Obtener la portada del primer track de la playlist
-  Future<String?> _getFirstTrackCover(int playlistId) async {
-    final query = select(playlistTracksTable).join([
-      innerJoin(tracksTable, tracksTable.id.equalsExp(playlistTracksTable.trackId)),
-    ])
-      ..where(playlistTracksTable.playlistId.equals(playlistId))
-      ..orderBy([OrderingTerm(expression: playlistTracksTable.position)])
-      ..limit(1);
-
-    final result = await query.getSingleOrNull();
-    if (result == null) return null;
-
-    final trackData = result.readTable(tracksTable);
-    return trackData.coverArtPath;
   }
 
   /// Obtener la portada del primer track que SÍ tenga imagen

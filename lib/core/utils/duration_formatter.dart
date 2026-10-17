@@ -22,9 +22,9 @@ class DurationFormatter {
     final seconds = duration.inSeconds.remainder(60);
 
     if (hours > 0) {
-      return '${hours}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
     } else {
-      return '${minutes}:${seconds.toString().padLeft(2, '0')}';
+      return '$minutes:${seconds.toString().padLeft(2, '0')}';
     }
   }
 
@@ -36,9 +36,9 @@ class DurationFormatter {
     final minutes = duration.inMinutes.remainder(60);
 
     if (hours > 0) {
-      return '${hours} hrs';
+      return '$hours hrs';
     } else if (minutes > 0) {
-      return '${minutes} min';
+      return '$minutes min';
     } else {
       return '${duration.inSeconds} seg';
     }

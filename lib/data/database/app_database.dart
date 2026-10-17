@@ -49,10 +49,15 @@ class AppDatabase extends _$AppDatabase {
   int get schemaVersion => 2; // Incrementado para nueva migración
 
   // Getters para los DAOs
+  @override
   TracksDao get tracksDao => TracksDao(this);
+  @override
   PlaySessionsDao get playSessionsDao => PlaySessionsDao(this);
+  @override
   AchievementsDao get achievementsDao => AchievementsDao(this);
+  @override
   StatsDao get statsDao => StatsDao(this);
+  @override
   PlaylistsDao get playlistsDao => PlaylistsDao(this);
 
   @override

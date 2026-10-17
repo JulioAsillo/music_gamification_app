@@ -10,7 +10,7 @@ part 'stats_dao.g.dart';
 /// DAO para gestionar estadísticas (usuario y géneros)
 @DriftAccessor(tables: [UserStatsTable, GenreStatsTable])
 class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
-  StatsDao(AppDatabase db) : super(db);
+  StatsDao(super.db);
 
   // ====== USER STATS ======
 

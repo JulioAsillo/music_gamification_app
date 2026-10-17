@@ -22,7 +22,6 @@ class AudioPlayerService {
   bool _useFallback = false;
   MusicAudioHandler? _createdHandler;
   List<Track> _fallbackQueue = [];
-  int? _fallbackIndex;
 
   /// Inicializar el servicio de audio
   Future<void> initialize() async {
@@ -93,7 +92,6 @@ class AudioPlayerService {
 
     debugPrint('🎵 Fallback: Reproduciendo ${tracks[initialIndex].title}');
     _fallbackQueue = tracks;
-    _fallbackIndex = initialIndex;
 
     try {
       final audioSources = tracks.map((track) {
@@ -103,8 +101,8 @@ class AudioPlayerService {
         );
       }).toList();
 
-      await _fallbackPlayer!.setAudioSource(
-        ConcatenatingAudioSource(children: audioSources),
+      await _fallbackPlayer!.setAudioSources(
+        audioSources,
         initialIndex: initialIndex,
         initialPosition: Duration.zero,
       );

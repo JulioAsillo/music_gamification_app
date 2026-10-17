@@ -8,7 +8,7 @@ part 'tracks_dao.g.dart';
 /// DAO para gestionar tracks/canciones
 @DriftAccessor(tables: [TracksTable])
 class TracksDao extends DatabaseAccessor<AppDatabase> with _$TracksDaoMixin {
-  TracksDao(AppDatabase db) : super(db);
+  TracksDao(super.db);
 
   /// Obtener todos los tracks
   Future<List<TracksTableData>> getAllTracks() {

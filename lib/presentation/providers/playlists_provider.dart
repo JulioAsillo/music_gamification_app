@@ -42,7 +42,7 @@ class PlaylistsNotifier extends StateNotifier<List<Playlist>> {
     try {
       final playlists = await _repository.getAllPlaylists();
       state = playlists;
-    } catch (e, st) {
+    } catch (e) {
       debugPrint('❌ Error cargando playlists: $e');
       state = [];
     }

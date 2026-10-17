@@ -8,7 +8,7 @@ part 'play_sessions_dao.g.dart';
 @DriftAccessor(tables: [PlaySessionsTable])
 class PlaySessionsDao extends DatabaseAccessor<AppDatabase>
     with _$PlaySessionsDaoMixin {
-  PlaySessionsDao(AppDatabase db) : super(db);
+  PlaySessionsDao(super.db);
 
   /// Insertar una sesión
   Future<int> insertSession(PlaySessionsTableCompanion session) {

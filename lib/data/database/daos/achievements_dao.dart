@@ -8,7 +8,7 @@ part 'achievements_dao.g.dart';
 @DriftAccessor(tables: [AchievementsTable])
 class AchievementsDao extends DatabaseAccessor<AppDatabase>
     with _$AchievementsDaoMixin {
-  AchievementsDao(AppDatabase db) : super(db);
+  AchievementsDao(super.db);
 
   /// Obtener todos los logros
   Future<List<AchievementsTableData>> getAllAchievements() {
